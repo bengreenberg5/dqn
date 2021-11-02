@@ -1,0 +1,8 @@
+.idea
+*.ipynb_checkpoints
+*.py[cod]
+*.sw[op]
+log/*
+runs/*
+tmp/*
+todo.txt
