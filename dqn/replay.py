@@ -4,7 +4,9 @@ import random
 import torch
 
 
-Experience = namedtuple("Experience", ["state", "action", "reward", "state_next", "done"])
+Experience = namedtuple(
+    "Experience", ["state", "action", "reward", "state_next", "done"]
+)
 
 
 # container for experience replay

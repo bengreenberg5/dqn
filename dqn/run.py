@@ -41,22 +41,22 @@ def first_state(env, env_name, history_length):
 
 
 def train(
-        env,
-        env_name,
-        history_length,
-        num_episodes,
-        minibatch_size=32,
-        exp_buffer_size=100_000,
-        epsilon_init=1.0,
-        epsilon_final=0.1,
-        epsilon_final_frame=100_000,
-        replay_start_frame=5_000,
-        q_target_update_freq=1_000,
-        learning_rate=1e-4,
-        momentum=0.0,
-        discount_factor=0.99,
-        save_every=0,
-        dirname="",
+    env,
+    env_name,
+    history_length,
+    num_episodes,
+    minibatch_size=32,
+    exp_buffer_size=100_000,
+    epsilon_init=1.0,
+    epsilon_final=0.1,
+    epsilon_final_frame=100_000,
+    replay_start_frame=5_000,
+    q_target_update_freq=1_000,
+    learning_rate=1e-4,
+    momentum=0.0,
+    discount_factor=0.99,
+    save_every=0,
+    dirname="",
 ):
     agent = DQNAgent(env_name, learning_rate, momentum, discount_factor)
     replay = ReplayBuffer(exp_buffer_size)
@@ -71,7 +71,9 @@ def train(
         elif frame >= epsilon_final_frame:
             epsilon = epsilon_final
         else:
-            epsilon = epsilon_init * (1 - frame / epsilon_final_frame) + epsilon_final * (frame / epsilon_final_frame)
+            epsilon = epsilon_init * (
+                1 - frame / epsilon_final_frame
+            ) + epsilon_final * (frame / epsilon_final_frame)
 
         # setup episode
         state = first_state(env, env_name, history_length)
@@ -85,7 +87,9 @@ def train(
                 action = env.action_space.sample()
             else:
                 action = agent.get_action(state)
-            state_next, reward, done = process_action(env, env_name, action, history_length)
+            state_next, reward, done = process_action(
+                env, env_name, action, history_length
+            )
             ep_reward += reward
             frame += history_length
 
@@ -117,8 +121,11 @@ def train(
         if ep % 100 == 0 and ep > 0:
             last_100 = sum(ep_rewards[-100:]) / 100
             total = sum(ep_rewards) / len(ep_rewards)
-            print(f"episode {ep}, " f"mean reward (last 100) = {last_100}, " f"mean reward (total) = {total:.3f}, frame {frame}")
-
+            print(
+                f"episode {ep}, "
+                f"mean reward (last 100) = {last_100}, "
+                f"mean reward (total) = {total:.3f}, frame {frame}"
+            )
 
     return agent
 
@@ -126,32 +133,94 @@ def train(
 def main():
     # training args
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", default="CartPole-v1", type=str, help="gym environment name")
-    parser.add_argument("--history_length", default=1, type=int, help="number of recent frames input to Q-networks")
-    parser.add_argument("--num_episodes", default=10_000, type=int, help="how many episodes to train for")
-    parser.add_argument("--minibatch_size", default=32, type=int, help="number of experiences per gradient step")
-    parser.add_argument("--exp_buffer_size", default=1_000_000, type=int, help="number of experiences to store")
-    parser.add_argument("--epsilon_init", default=1, type=int, help="initial exploration value")
-    parser.add_argument("--epsilon_final", default=0.1, type=float, help="final exploration value")
-    parser.add_argument("--epsilon_final_frame", default=1_000_000, type=int, help="the number of frames over which epsilon is linearly annealed to its final value")
-    parser.add_argument("--replay_start_frame", default=50_000, type=int, help="how many frames of random play before learning starts")
-    parser.add_argument("--q_target_update_freq", default=10_000, type=int, help="initial exploration coefficient")
-    parser.add_argument("--learning_rate", default=2.5e-4, type=float, help="optimizer learning rate")
-    parser.add_argument("--momentum", default=0.95, type=float, help="alpha / optimizer learning rate")
-    parser.add_argument("--discount_factor", default=0.99, type=float, help="gamma / target discount factor")
-    parser.add_argument("--save_every", default=0, type=int, help="how often to save model weights and video (0 to not save)")
+    parser.add_argument(
+        "--env", default="CartPole-v1", type=str, help="gym environment name"
+    )
+    parser.add_argument(
+        "--history_length",
+        default=1,
+        type=int,
+        help="number of recent frames input to Q-networks",
+    )
+    parser.add_argument(
+        "--num_episodes",
+        default=10_000,
+        type=int,
+        help="how many episodes to train for",
+    )
+    parser.add_argument(
+        "--minibatch_size",
+        default=32,
+        type=int,
+        help="number of experiences per gradient step",
+    )
+    parser.add_argument(
+        "--exp_buffer_size",
+        default=1_000_000,
+        type=int,
+        help="number of experiences to store",
+    )
+    parser.add_argument(
+        "--epsilon_init", default=1, type=int, help="initial exploration value"
+    )
+    parser.add_argument(
+        "--epsilon_final", default=0.1, type=float, help="final exploration value"
+    )
+    parser.add_argument(
+        "--epsilon_final_frame",
+        default=1_000_000,
+        type=int,
+        help="the number of frames over which epsilon is linearly annealed to its final value",
+    )
+    parser.add_argument(
+        "--replay_start_frame",
+        default=50_000,
+        type=int,
+        help="how many frames of random play before learning starts",
+    )
+    parser.add_argument(
+        "--q_target_update_freq",
+        default=10_000,
+        type=int,
+        help="initial exploration coefficient",
+    )
+    parser.add_argument(
+        "--learning_rate", default=2.5e-4, type=float, help="optimizer learning rate"
+    )
+    parser.add_argument(
+        "--momentum", default=0.95, type=float, help="alpha / optimizer learning rate"
+    )
+    parser.add_argument(
+        "--discount_factor",
+        default=0.99,
+        type=float,
+        help="gamma / target discount factor",
+    )
+    parser.add_argument(
+        "--save_every",
+        default=0,
+        type=int,
+        help="how often to save model weights and video (0 to not save)",
+    )
     args = parser.parse_args()
 
     env_name = args.env
     env = gym.make(env_name)
 
-    dirname = os.path.abspath(f"../runs/{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_{args.exp_buffer_size}_{args.epsilon_init}_{args.epsilon_final}_{args.epsilon_final_frame}_{args.replay_start_frame}_{args.q_target_update_freq}_{args.learning_rate}_{args.momentum}_{args.discount_factor}")
+    dirname = os.path.abspath(
+        f"../runs/{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_{args.exp_buffer_size}_{args.epsilon_init}_{args.epsilon_final}_{args.epsilon_final_frame}_{args.replay_start_frame}_{args.q_target_update_freq}_{args.learning_rate}_{args.momentum}_{args.discount_factor}"
+    )
 
     if not os.path.exists(dirname):
         os.mkdir(dirname)
 
     if args.save_every > 0:
-        env = Monitor(env, f"{dirname}/videos", video_callable=lambda ep: ep % args.save_every == 0, force=True)
+        env = Monitor(
+            env,
+            f"{dirname}/videos",
+            video_callable=lambda ep: ep % args.save_every == 0,
+            force=True,
+        )
 
     agent = train(
         env=env,
@@ -185,7 +254,9 @@ def main():
                 action = env.action_space.sample()
             else:
                 action = agent.get_action(state)
-            state_next, reward, done = process_action(env, env_name, action, args.history_length)
+            state_next, reward, done = process_action(
+                env, env_name, action, args.history_length
+            )
             ep_reward += reward
             state = state_next
             frame += args.history_length

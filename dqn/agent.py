@@ -16,7 +16,7 @@ class DQNet(nn.Module):
             layer_dims = [50, 25]
             self.layers = [nn.Linear(num_inputs, layer_dims[0]), nn.ReLU()]
             for i in range(len(layer_dims) - 1):
-                self.layers.append(nn.Linear(layer_dims[i], layer_dims[i+1]))
+                self.layers.append(nn.Linear(layer_dims[i], layer_dims[i + 1]))
                 self.layers.append(nn.ReLU())
             self.layers.append(nn.Linear(layer_dims[-1], num_outputs))
             self.layers = nn.ModuleList(self.layers)
@@ -39,7 +39,9 @@ class DQNAgent:
 
         self.q_net = DQNet(env_name)
         self.q_target = deepcopy(self.q_net)
-        self.optimizer = torch.optim.RMSprop(self.q_net.parameters(), lr=learning_rate, momentum=momentum)
+        self.optimizer = torch.optim.RMSprop(
+            self.q_net.parameters(), lr=learning_rate, momentum=momentum
+        )
 
     def save_networks(self, dirname):
         if not os.path.exists(dirname):
@@ -56,7 +58,9 @@ class DQNAgent:
         reward_batch = torch.tensor([exp.reward for exp in exp_batch])
         not_done_batch = torch.tensor([not exp.done for exp in exp_batch])
         q_batch = self.q_target(state_next_batch)
-        return reward_batch + self.discount_factor * not_done_batch * q_batch.amax(axis=1)
+        return reward_batch + self.discount_factor * not_done_batch * q_batch.amax(
+            axis=1
+        )
 
     def get_q_value_estimate(self, exp_batch):
         state_batch = torch.cat([exp.state for exp in exp_batch])
