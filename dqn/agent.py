@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 import torch
 import torch.nn as nn
@@ -30,22 +31,6 @@ class DQNet(nn.Module):
         return x
 
 
-class Agent:
-    def __init__(self, action_space):
-        self.action_space = action_space
-
-    def get_action(self, state):
-        raise NotImplementedError()
-
-
-class RandomAgent(Agent):
-    def __init__(self, action_space):
-        Agent.__init__(self, action_space)
-
-    def get_action(self, state):
-        return self.action_space.sample()
-
-
 class DQNAgent:
     def __init__(self, env_name, learning_rate, momentum, discount_factor):
         self.env_name = env_name
@@ -55,6 +40,12 @@ class DQNAgent:
         self.q_net = DQNet(env_name)
         self.q_target = deepcopy(self.q_net)
         self.optimizer = torch.optim.RMSprop(self.q_net.parameters(), lr=learning_rate, momentum=momentum)
+
+    def save_networks(self, dirname):
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
+        torch.save(self.q_net, f"{dirname}/q_net.pt")
+        torch.save(self.q_target, f"{dirname}/q_target.pt")
 
     def get_action(self, state):
         rewards = self.q_net(state)

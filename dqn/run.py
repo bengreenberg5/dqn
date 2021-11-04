@@ -1,11 +1,13 @@
 import argparse
+import os
 
 import gym
 import numpy as np
 import random
 import torch
+from gym.wrappers import Monitor
 
-from agent import DQNAgent, RandomAgent
+from agent import DQNAgent
 from replay import ReplayBuffer, Experience
 
 
@@ -53,6 +55,8 @@ def train(
         learning_rate=1e-4,
         momentum=0.0,
         discount_factor=0.99,
+        save_every=0,
+        dirname="",
 ):
     agent = DQNAgent(env_name, learning_rate, momentum, discount_factor)
     replay = ReplayBuffer(exp_buffer_size)
@@ -73,10 +77,8 @@ def train(
         state = first_state(env, env_name, history_length)
         ep_reward = 0
         done = False
-        while not done:
 
-            if ep % 100 == 0:
-                env.render()
+        while not done:
 
             # take one action (for at least one frame)
             if random.random() < epsilon:
@@ -108,10 +110,15 @@ def train(
             state = state_next
 
         ep_rewards.append(ep_reward)
+
+        if save_every > 0 and ep % save_every == 0:
+            agent.save_networks(f"{dirname}/{str(ep).zfill(7)}")
+
         if ep % 100 == 0 and ep > 0:
             last_100 = sum(ep_rewards[-100:]) / 100
             total = sum(ep_rewards) / len(ep_rewards)
             print(f"episode {ep}, " f"mean reward (last 100) = {last_100}, " f"mean reward (total) = {total:.3f}, frame {frame}")
+
 
     return agent
 
@@ -119,23 +126,32 @@ def train(
 def main():
     # training args
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", default="CartPole-v1", help="gym environment name")
-    parser.add_argument("--history_length", default=1, help="number of recent frames input to Q-networks")
-    parser.add_argument("--num_episodes", default=10_000, help="how many episodes to train for")
-    parser.add_argument("--minibatch_size", default=32, help="number of experiences per gradient step")
-    parser.add_argument("--exp_buffer_size", default=1_000_000, help="number of experiences to store")
-    parser.add_argument("--epsilon_init", default=1, help="initial exploration value")
-    parser.add_argument("--epsilon_final", default=0.1, help="final exploration value")
-    parser.add_argument("--epsilon_final_frame", default=1_000_000, help="the number of frames over which epsilon is linearly annealed to its final value")
-    parser.add_argument("--replay_start_frame", default=50_000, help="how many frames of random play before learning starts")
-    parser.add_argument("--q_target_update_freq", default=1, help="initial exploration coefficient")
-    parser.add_argument("--learning_rate", default=2.5e-4, help="optimizer learning rate")
-    parser.add_argument("--momentum", default=0.95, help="alpha / optimizer learning rate")
-    parser.add_argument("--discount_factor", default=0.99, help="gamma / target discount factor")
+    parser.add_argument("--env", default="CartPole-v1", type=str, help="gym environment name")
+    parser.add_argument("--history_length", default=1, type=int, help="number of recent frames input to Q-networks")
+    parser.add_argument("--num_episodes", default=10_000, type=int, help="how many episodes to train for")
+    parser.add_argument("--minibatch_size", default=32, type=int, help="number of experiences per gradient step")
+    parser.add_argument("--exp_buffer_size", default=1_000_000, type=int, help="number of experiences to store")
+    parser.add_argument("--epsilon_init", default=1, type=int, help="initial exploration value")
+    parser.add_argument("--epsilon_final", default=0.1, type=float, help="final exploration value")
+    parser.add_argument("--epsilon_final_frame", default=1_000_000, type=int, help="the number of frames over which epsilon is linearly annealed to its final value")
+    parser.add_argument("--replay_start_frame", default=50_000, type=int, help="how many frames of random play before learning starts")
+    parser.add_argument("--q_target_update_freq", default=10_000, type=int, help="initial exploration coefficient")
+    parser.add_argument("--learning_rate", default=2.5e-4, type=float, help="optimizer learning rate")
+    parser.add_argument("--momentum", default=0.95, type=float, help="alpha / optimizer learning rate")
+    parser.add_argument("--discount_factor", default=0.99, type=float, help="gamma / target discount factor")
+    parser.add_argument("--save_every", default=0, type=int, help="how often to save model weights and video (0 to not save)")
     args = parser.parse_args()
 
     env_name = args.env
     env = gym.make(env_name)
+
+    dirname = os.path.abspath(f"../runs/{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_{args.exp_buffer_size}_{args.epsilon_init}_{args.epsilon_final}_{args.epsilon_final_frame}_{args.replay_start_frame}_{args.q_target_update_freq}_{args.learning_rate}_{args.momentum}_{args.discount_factor}")
+
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+
+    if args.save_every > 0:
+        env = Monitor(env, f"{dirname}/videos", video_callable=lambda ep: ep % args.save_every == 0, force=True)
 
     agent = train(
         env=env,
@@ -152,12 +168,14 @@ def main():
         learning_rate=args.learning_rate,
         momentum=args.momentum,
         discount_factor=args.discount_factor,
+        save_every=args.save_every,
+        dirname=dirname,
     )
 
     # run episodes
     rewards = []
     frames = []
-    for ep in range(100):
+    for _ in range(100):
         state = first_state(env, env_name, args.history_length)
         ep_reward = 0
         done = False
@@ -169,13 +187,11 @@ def main():
                 action = agent.get_action(state)
             state_next, reward, done = process_action(env, env_name, action, args.history_length)
             ep_reward += reward
-            if ep % 5 == 0:
-                env.render()
             state = state_next
             frame += args.history_length
         rewards.append(ep_reward)
         frames.append(frame)
-        print(ep, ep_reward, frame)
+        print(ep_reward, frame)
 
     print(sum(rewards) / len(rewards))
     print(sum(frames) / len(frames))
