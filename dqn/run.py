@@ -1,11 +1,12 @@
 import argparse
+from datetime import datetime
 import os
-
-import gym
 import numpy as np
 import random
-import torch
+
+import gym
 from gym.wrappers import Monitor
+import torch
 
 from agent import DQNAgent
 from replay import ReplayBuffer, Experience
@@ -207,8 +208,9 @@ def main():
     env_name = args.env
     env = gym.make(env_name)
 
+    time = datetime.now().strftime("%Y%m%d_%H%M%S")
     dirname = os.path.abspath(
-        f"../runs/{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_{args.exp_buffer_size}_{args.epsilon_init}_{args.epsilon_final}_{args.epsilon_final_frame}_{args.replay_start_frame}_{args.q_target_update_freq}_{args.learning_rate}_{args.momentum}_{args.discount_factor}"
+        f"../runs/{time}_{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_{args.exp_buffer_size}_{args.epsilon_init}_{args.epsilon_final}_{args.epsilon_final_frame}_{args.replay_start_frame}_{args.q_target_update_freq}_{args.learning_rate}_{args.momentum}_{args.discount_factor}"
     )
 
     if not os.path.exists(dirname):
