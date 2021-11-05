@@ -1,4 +1,5 @@
 import argparse
+import cv2
 from datetime import datetime
 import os
 import numpy as np
@@ -12,24 +13,44 @@ from agent import DQNAgent
 from replay import ReplayBuffer, Experience
 
 
-def preprocess_images(images, env_name):
-    images = np.stack(images)
-    if env_name.startswith("Breakout"):
-        pass  # TODO
+def preprocess_images(images, env_name, prev_image=None):
+
+    def rescale(image):
+        r = cv2.resize(image[0], (84, 84))
+        g = cv2.resize(image[1], (84, 84))
+        b = cv2.resize(image[2], (84, 84))
+        y = 0.299 * r + 0.587 * g + 0.114 * b
+        return np.stack([r, g, b, y], axis=0)
+
+    images = [torch.tensor(rescale(image)).float() for image in images]
+    processed_images = []
+    if env_name in ["Breakout-v4"]:
+        if prev_image is not None:
+            first_image = torch.maximum(prev_image[:, -1, :, :], images[0])
+        else:
+            first_image = images[0]
+        processed_images.append(first_image)
+        for i in range(1, len(images)):
+            processed_images.append(torch.maximum(images[i-1], images[i]))
+        processed_images = torch.stack(processed_images, dim=1)
+
     else:
-        return torch.tensor(images)
+        processed_images = torch.tensor(images)
+
+    return processed_images
 
 
-def process_action(env, env_name, action, history_length):
+def process_action(env, env_name, action, history_length, prev_image=None):
     images = []
     reward = 0
     done = False
     # aggregate images into state
     for _ in range(history_length):
-        image_next, r, done, _ = env.step(action)
+        if not done:
+            image_next, r, done, _ = env.step(action)
         images.append(image_next)
         reward += r
-    state_next = preprocess_images(images, env_name)
+    state_next = preprocess_images(images, env_name, prev_image)
     return state_next, reward, done
 
 
@@ -59,7 +80,7 @@ def train(
     save_every=0,
     dirname="",
 ):
-    agent = DQNAgent(env_name, learning_rate, momentum, discount_factor)
+    agent = DQNAgent(env_name, history_length, learning_rate, momentum, discount_factor)
     replay = ReplayBuffer(exp_buffer_size)
     frame = 0
     ep_rewards = []
@@ -89,7 +110,7 @@ def train(
             else:
                 action = agent.get_action(state)
             state_next, reward, done = process_action(
-                env, env_name, action, history_length
+                env, env_name, action, history_length, prev_image=state
             )
             ep_reward += reward
             frame += history_length
@@ -119,12 +140,12 @@ def train(
         if save_every > 0 and ep % save_every == 0:
             agent.save_networks(f"{dirname}/{str(ep).zfill(7)}")
 
-        if ep % 100 == 0 and ep > 0:
-            last_100 = sum(ep_rewards[-100:]) / 100
+        if save_every > 0 and ep > 0 and ep % save_every == 0:
+            last = sum(ep_rewards[-save_every:]) / save_every
             total = sum(ep_rewards) / len(ep_rewards)
             print(
                 f"episode {ep}, "
-                f"mean reward (last 100) = {last_100}, "
+                f"mean reward (last {save_every}) = {last}, "
                 f"mean reward (total) = {total:.3f}, frame {frame}"
             )
 
@@ -139,7 +160,7 @@ def main():
     )
     parser.add_argument(
         "--history_length",
-        default=1,
+        default=4,
         type=int,
         help="number of recent frames input to Q-networks",
     )
@@ -210,7 +231,10 @@ def main():
 
     time = datetime.now().strftime("%Y%m%d_%H%M%S")
     dirname = os.path.abspath(
-        f"../runs/{time}_{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_{args.exp_buffer_size}_{args.epsilon_init}_{args.epsilon_final}_{args.epsilon_final_frame}_{args.replay_start_frame}_{args.q_target_update_freq}_{args.learning_rate}_{args.momentum}_{args.discount_factor}"
+        f"../runs/{time}_{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_"
+        f"{args.exp_buffer_size}_{args.epsilon_init}_{args.epsilon_final}_{args.epsilon_final_frame}_"
+        f"{args.replay_start_frame}_{args.q_target_update_freq}_{args.learning_rate}_{args.momentum}_"
+        f"{args.discount_factor}"
     )
 
     if not os.path.exists(dirname):
@@ -243,31 +267,31 @@ def main():
         dirname=dirname,
     )
 
-    # run episodes
-    rewards = []
-    frames = []
-    for _ in range(100):
-        state = first_state(env, env_name, args.history_length)
-        ep_reward = 0
-        done = False
-        frame = 0
-        while not done:
-            if random.random() < args.epsilon_final:
-                action = env.action_space.sample()
-            else:
-                action = agent.get_action(state)
-            state_next, reward, done = process_action(
-                env, env_name, action, args.history_length
-            )
-            ep_reward += reward
-            state = state_next
-            frame += args.history_length
-        rewards.append(ep_reward)
-        frames.append(frame)
-        print(ep_reward, frame)
-
-    print(sum(rewards) / len(rewards))
-    print(sum(frames) / len(frames))
+    # # run episodes
+    # rewards = []
+    # frames = []
+    # for _ in range(100):
+    #     state = first_state(env, env_name, args.history_length)
+    #     ep_reward = 0
+    #     done = False
+    #     frame = 0
+    #     while not done:
+    #         if random.random() < args.epsilon_final:
+    #             action = env.action_space.sample()
+    #         else:
+    #             action = agent.get_action(state)
+    #         state_next, reward, done = process_action(
+    #             env, env_name, action, args.history_length, prev_image=state
+    #         )
+    #         ep_reward += reward
+    #         state = state_next
+    #         frame += args.history_length
+    #     rewards.append(ep_reward)
+    #     frames.append(frame)
+    #     print(ep_reward, frame)
+    #
+    # print(sum(rewards) / len(rewards))
+    # print(sum(frames) / len(frames))
 
 
 if __name__ == "__main__":
