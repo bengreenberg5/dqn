@@ -68,7 +68,7 @@ class DQNAgent:
         return torch.argmax(rewards).item()
 
     def get_q_target_estimate(self, exp_batch):
-        state_next_batch = torch.stack([exp.state_next for exp in exp_batch], dim=0)
+        state_next_batch = torch.cat([exp.state_next for exp in exp_batch], dim=0)
         reward_batch = torch.tensor([exp.reward for exp in exp_batch])
         not_done_batch = torch.tensor([not exp.done for exp in exp_batch])
         q_batch = self.q_target(state_next_batch)
@@ -77,7 +77,7 @@ class DQNAgent:
         )
 
     def get_q_value_estimate(self, exp_batch):
-        state_batch = torch.stack([exp.state for exp in exp_batch], dim=0)
+        state_batch = torch.cat([exp.state for exp in exp_batch], dim=0)
         action_batch = torch.tensor([exp.action for exp in exp_batch])
         values = self.q_net(state_batch)
         return values.masked_select(F.one_hot(action_batch).bool())

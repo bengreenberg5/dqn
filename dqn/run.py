@@ -9,8 +9,8 @@ import gym
 from gym.wrappers import Monitor
 import torch
 
-from agent import DQNAgent
-from replay import ReplayBuffer, Experience
+# from agent import DQNAgent
+# from replay import ReplayBuffer, Experience
 
 
 def preprocess_images(images, env_name, prev_image=None):
@@ -25,14 +25,16 @@ def preprocess_images(images, env_name, prev_image=None):
     images = [torch.tensor(rescale(image)).float() for image in images]
     processed_images = []
     if env_name in ["Breakout-v4"]:
+        # N, color channels, frame depth, frame height, frame width
+        # 1,              4,           4,           84,          84
         if prev_image is not None:
-            first_image = torch.maximum(prev_image[:, -1, :, :], images[0])
+            first_image = torch.maximum(prev_image[0, :, -1, :, :], images[0])
         else:
             first_image = images[0]
         processed_images.append(first_image)
         for i in range(1, len(images)):
             processed_images.append(torch.maximum(images[i-1], images[i]))
-        processed_images = torch.stack(processed_images, dim=1)
+        processed_images = torch.stack(processed_images, dim=1).unsqueeze(0)
 
     else:
         processed_images = torch.tensor(images)
