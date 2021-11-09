@@ -80,7 +80,7 @@ class DQNAgent:
         state_batch = torch.cat([exp.state for exp in exp_batch], dim=0)
         action_batch = torch.tensor([exp.action for exp in exp_batch])
         values = self.q_net(state_batch)
-        return values.masked_select(F.one_hot(action_batch).bool())
+        return values.masked_select(F.one_hot(action_batch, num_classes=4).bool())
 
     def reset_target(self):
         self.q_target = deepcopy(self.q_net)
