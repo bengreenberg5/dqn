@@ -9,8 +9,8 @@ import gym
 from gym.wrappers import Monitor
 import torch
 
-# from agent import DQNAgent
-# from replay import ReplayBuffer, Experience
+from dqn.agent import DQNAgent
+from dqn.replay import ReplayBuffer, Experience
 
 
 def preprocess_images(images, env_name, prev_image=None):
