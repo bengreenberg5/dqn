@@ -20,22 +20,40 @@ class DQNet(nn.Module):
                 nn.ReLU(),
                 nn.Linear(50, 25),
                 nn.ReLU(),
-                nn.Linear(25, self.num_outputs)
+                nn.Linear(25, self.num_outputs),
             ]
 
         # Breakout: 3 conv layers with ReLU
         elif env_name in ["Breakout-v4"]:
             self.layers = [
-                nn.Conv3d(in_channels=4, out_channels=32, kernel_size=(1, 8, 8), stride=(1, 4, 4), padding="valid"),
+                nn.Conv3d(
+                    in_channels=4,
+                    out_channels=32,
+                    kernel_size=(1, 8, 8),
+                    stride=(1, 4, 4),
+                    padding="valid",
+                ),
                 nn.ReLU(),
-                nn.Conv3d(in_channels=32, out_channels=64, kernel_size=(1, 4, 4), stride=(1, 2, 2), padding="valid"),
+                nn.Conv3d(
+                    in_channels=32,
+                    out_channels=64,
+                    kernel_size=(1, 4, 4),
+                    stride=(1, 2, 2),
+                    padding="valid",
+                ),
                 nn.ReLU(),
-                nn.Conv3d(in_channels=64, out_channels=64, kernel_size=(1, 3, 3), stride=(1, 1, 1), padding="valid"),
+                nn.Conv3d(
+                    in_channels=64,
+                    out_channels=64,
+                    kernel_size=(1, 3, 3),
+                    stride=(1, 1, 1),
+                    padding="valid",
+                ),
                 nn.ReLU(),
                 nn.Flatten(),
-                nn.Linear(in_features=64*history_length*7*7, out_features=512),
+                nn.Linear(in_features=64 * history_length * 7 * 7, out_features=512),
                 nn.ReLU(),
-                nn.Linear(in_features=512, out_features=self.num_outputs)
+                nn.Linear(in_features=512, out_features=self.num_outputs),
             ]
 
         self.layers = nn.ModuleList(self.layers)
@@ -47,7 +65,14 @@ class DQNet(nn.Module):
 
 
 class DQNAgent:
-    def __init__(self, env_name, history_length=4, learning_rate=1e-4, momentum=0.95, discount_factor=0.99):
+    def __init__(
+        self,
+        env_name,
+        history_length=4,
+        learning_rate=1e-4,
+        momentum=0.95,
+        discount_factor=0.99,
+    ):
         self.env_name = env_name
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
@@ -87,7 +112,9 @@ class DQNAgent:
         state_batch = torch.cat([exp.state for exp in exp_batch], dim=0)
         action_batch = torch.tensor([exp.action for exp in exp_batch])
         values = self.q_net(state_batch)
-        return values.masked_select(F.one_hot(action_batch, num_classes=self.q_net.num_outputs).bool())
+        return values.masked_select(
+            F.one_hot(action_batch, num_classes=self.q_net.num_outputs).bool()
+        )
 
     def reset_target(self):
         self.q_target = deepcopy(self.q_net)

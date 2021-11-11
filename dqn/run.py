@@ -94,7 +94,9 @@ def train(
 
             # update gradients using experience replay
             if state is not None:
-                replay.append(Experience(state, action, action_reward, state_next, done))
+                replay.append(
+                    Experience(state, action, action_reward, state_next, done)
+                )
 
             if len(replay) > minibatch_size:
                 exp_batch = replay.sample_experience(minibatch_size)
@@ -118,7 +120,9 @@ def train(
         ep_rewards.append(ep_reward)
 
         if ep % 10 == 0:
-            print(f"{datetime.now().strftime('%H:%M:%S')} - frame {frames}, episode {ep}")
+            print(
+                f"{datetime.now().strftime('%H:%M:%S')} - frame {frames}, episode {ep}"
+            )
 
         if save_every > 0 and ep % save_every == 0:
             agent.save_networks(f"{dirname}/{str(ep).zfill(7)}")
