@@ -12,8 +12,8 @@ PERMITTED_ACTIONS = {
     },
     "Breakout-v4": {
         0: 0,  # NOOP
-        1: 3,  # RIGHT
-        2: 4,  # LEFT
+        1: 2,  # RIGHT
+        2: 3,  # LEFT
     }
 }
 

@@ -71,11 +71,11 @@ def train(
 
             if ep_frames < history_length:
                 if env_name.startswith("CartPole"):
-                    action = env.action_space.sample()
+                    action = random.choice(list(agent.permitted_actions.keys()))
                 else:
                     action = 0  # NOOP
             elif random.random() < epsilon:
-                action = env.action_space.sample()
+                action = random.choice(list(agent.permitted_actions.keys()))
             else:
                 action = agent.get_action(state)
 
@@ -109,13 +109,13 @@ def train(
                 agent.optimizer.step()
 
                 # update target net
-                if (frame / history_length) % q_target_update_freq == 0:
+                if (frames / history_length) % q_target_update_freq == 0:
                     agent.reset_target()
 
             # update state
             state = state_next
 
-        frames += ep_frame
+        frames += ep_frames
         ep_rewards.append(ep_reward)
 
         if save_every > 0 and ep % save_every == 0:
@@ -126,14 +126,14 @@ def train(
             total = sum(ep_rewards) / len(ep_rewards)
             print(
                 f"{datetime.now().strftime('%H:%M:%S')} - "
-                f"frame {frame}, "
+                f"frame {frames}, "
                 f"episode {ep}, "
                 f"mean reward (last {save_every}) = {last}, "
                 f"mean reward (total) = {total:.3f}"
             )
 
         elif ep % 10 == 0:
-            print(f"{datetime.now().strftime('%H:%M:%S')} - episode {ep}")
+            print(f"{datetime.now().strftime('%H:%M:%S')} - frame {frames}, episode {ep}")
 
     return agent
 
