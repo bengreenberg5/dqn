@@ -77,12 +77,12 @@ def train(
             elif random.random() < epsilon:
                 action = env.action_space.sample()
             else:
-                action = agent.permitted_actions[agent.get_action(state)]
+                action = agent.get_action(state)
 
             action_reward = 0
             for _ in range(history_length):
                 if not done:
-                    image, reward, done, _ = env.step(action)
+                    image, reward, done, _ = env.step(agent.permitted_actions[action])
                     image = torch.Tensor(rescale(image, env_name))
                     if ep_frames > 0:
                         image = torch.maximum(image, frame_buffer[-1])
