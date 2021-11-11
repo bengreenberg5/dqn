@@ -46,29 +46,35 @@ def train(
 ):
     agent = DQNAgent(env_name, history_length, learning_rate, momentum, discount_factor)
     replay = ReplayBuffer(exp_buffer_size)
-    frame = 0
+    frames = 0
     ep_rewards = []
     for ep in range(num_episodes):
 
         # get probability of random action
-        if frame < replay_start_frame:
+        if frames < replay_start_frame:
             epsilon = epsilon_init
-        elif frame >= epsilon_final_frame:
+        elif frames >= epsilon_final_frame:
             epsilon = epsilon_final
         else:
             epsilon = epsilon_init * (
-                1 - frame / epsilon_final_frame
-            ) + epsilon_final * (frame / epsilon_final_frame)
+                1 - frames / epsilon_final_frame
+            ) + epsilon_final * (frames / epsilon_final_frame)
 
         # setup episode
         image = torch.Tensor(rescale(env.reset(), env_name))
         frame_buffer = deque([image], maxlen=history_length)
+        ep_frames = 0
         ep_reward = 0
         done = False
         state = None
         while not done:
 
-            if random.random() < epsilon:
+            if ep_frames < history_length:
+                if env_name.startswith("CartPole"):
+                    action = env.action_space.sample()
+                else:
+                    action = 0  # NOOP
+            elif random.random() < epsilon:
                 action = env.action_space.sample()
             else:
                 action = agent.get_action(state)
@@ -78,11 +84,11 @@ def train(
                 if not done:
                     image, reward, done, _ = env.step(action)
                     image = torch.Tensor(rescale(image, env_name))
-                    if frame > 0:
+                    if ep_frames > 0:
                         image = torch.maximum(image, frame_buffer[-1])
                     action_reward += reward
                 frame_buffer.append(image)
-                frame += 1
+            ep_frames += history_length
             ep_reward += action_reward
 
             state_next = torch.stack(list(frame_buffer), dim=1).unsqueeze(0)
@@ -109,22 +115,24 @@ def train(
             # update state
             state = state_next
 
+        frames += ep_frame
         ep_rewards.append(ep_reward)
 
         if save_every > 0 and ep % save_every == 0:
             agent.save_networks(f"{dirname}/{str(ep).zfill(7)}")
 
         if save_every > 0 and ep > 0 and ep % save_every == 0:
-            last = ep_rewards[-1]
+            last = sum(ep_rewards[-save_every:]) / save_every
             total = sum(ep_rewards) / len(ep_rewards)
             print(
-                f"{datetime.now().strftime('%H:%M:%S')} "
+                f"{datetime.now().strftime('%H:%M:%S')} - "
+                f"frame {frame}, "
                 f"episode {ep}, "
-                f"mean reward (last) = {last}, "
-                f"mean reward (total) = {total:.3f}, frame {frame}"
+                f"mean reward (last {save_every}) = {last}, "
+                f"mean reward (total) = {total:.3f}"
             )
 
-        if ep % 10 == 0:
+        elif ep % 10 == 0:
             print(f"{datetime.now().strftime('%H:%M:%S')} - episode {ep}")
 
     return agent

@@ -5,14 +5,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+PERMITTED_ACTIONS = {
+    "CartPole-v0": {
+        0: 0,  # LEFT
+        1: 1,  # RIGHT
+    },
+    "Breakout-v4": {
+        0: 0,  # NOOP
+        1: 3,  # RIGHT
+        2: 4,  # LEFT
+    }
+}
+
+
 class DQNet(nn.Module):
     def __init__(self, env_name, history_length):
         nn.Module.__init__(self)
+        num_outputs = len(PERMITTED_ACTIONS[env_name])
 
         # CartPole: 2 linear layers with ReLU
         if env_name.startswith("CartPole"):
             num_inputs = 4
-            num_outputs = 2
             self.layers = [
                 nn.Linear(num_inputs, 50),
                 nn.ReLU(),
@@ -23,7 +36,6 @@ class DQNet(nn.Module):
 
         # Breakout: 3 conv layers with ReLU
         elif env_name in ["Breakout-v4"]:
-            num_outputs = 4
             self.layers = [
                 nn.Conv3d(in_channels=4, out_channels=32, kernel_size=(1, 8, 8), stride=(1, 4, 4), padding="valid"),
                 nn.ReLU(),
@@ -48,6 +60,7 @@ class DQNet(nn.Module):
 class DQNAgent:
     def __init__(self, env_name, history_length=4, learning_rate=1e-4, momentum=0.95, discount_factor=0.99):
         self.env_name = env_name
+        self.permitted_actions = PERMITTED_ACTIONS[env_name]
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
 
@@ -71,7 +84,8 @@ class DQNAgent:
 
     def get_action(self, state):
         rewards = self.q_net(state)
-        return torch.argmax(rewards).item()
+        best_action = torch.argmax(rewards).item()
+        return self.permitted_actions[best_action]
 
     def get_q_target_estimate(self, exp_batch):
         state_next_batch = torch.cat([exp.state_next for exp in exp_batch], dim=0)
@@ -86,7 +100,7 @@ class DQNAgent:
         state_batch = torch.cat([exp.state for exp in exp_batch], dim=0)
         action_batch = torch.tensor([exp.action for exp in exp_batch])
         values = self.q_net(state_batch)
-        return values.masked_select(F.one_hot(action_batch, num_classes=4).bool())
+        return values.masked_select(F.one_hot(action_batch, num_classes=len(self.permitted_actions)).bool())
 
     def reset_target(self):
         self.q_target = deepcopy(self.q_net)
