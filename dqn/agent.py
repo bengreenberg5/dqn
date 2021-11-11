@@ -1,27 +1,16 @@
-import os
 from copy import deepcopy
+import os
+
+import gym
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-PERMITTED_ACTIONS = {
-    "CartPole-v0": {
-        0: 0,  # LEFT
-        1: 1,  # RIGHT
-    },
-    "Breakout-v4": {
-        0: 0,  # NOOP
-        1: 2,  # RIGHT
-        2: 3,  # LEFT
-    }
-}
-
-
 class DQNet(nn.Module):
     def __init__(self, env_name, history_length):
         nn.Module.__init__(self)
-        num_outputs = len(PERMITTED_ACTIONS[env_name])
+        self.num_outputs = gym.make(env_name).action_space.n
 
         # CartPole: 2 linear layers with ReLU
         if env_name.startswith("CartPole"):
@@ -31,7 +20,7 @@ class DQNet(nn.Module):
                 nn.ReLU(),
                 nn.Linear(50, 25),
                 nn.ReLU(),
-                nn.Linear(25, num_outputs)
+                nn.Linear(25, self.num_outputs)
             ]
 
         # Breakout: 3 conv layers with ReLU
@@ -46,7 +35,7 @@ class DQNet(nn.Module):
                 nn.Flatten(),
                 nn.Linear(in_features=64*history_length*7*7, out_features=512),
                 nn.ReLU(),
-                nn.Linear(in_features=512, out_features=num_outputs)
+                nn.Linear(in_features=512, out_features=self.num_outputs)
             ]
 
         self.layers = nn.ModuleList(self.layers)
@@ -60,7 +49,6 @@ class DQNet(nn.Module):
 class DQNAgent:
     def __init__(self, env_name, history_length=4, learning_rate=1e-4, momentum=0.95, discount_factor=0.99):
         self.env_name = env_name
-        self.permitted_actions = PERMITTED_ACTIONS[env_name]
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
 
@@ -99,7 +87,7 @@ class DQNAgent:
         state_batch = torch.cat([exp.state for exp in exp_batch], dim=0)
         action_batch = torch.tensor([exp.action for exp in exp_batch])
         values = self.q_net(state_batch)
-        return values.masked_select(F.one_hot(action_batch, num_classes=len(self.permitted_actions)).bool())
+        return values.masked_select(F.one_hot(action_batch, num_classes=self.q_net.num_outputs).bool())
 
     def reset_target(self):
         self.q_target = deepcopy(self.q_net)

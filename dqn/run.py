@@ -48,8 +48,8 @@ def train(
     replay = ReplayBuffer(exp_buffer_size)
     frames = 0
     ep_rewards = []
+    print(f"{datetime.now().strftime('%H:%M:%S')} - starting training")
     for ep in range(num_episodes):
-
         # get probability of random action
         if frames < replay_start_frame:
             epsilon = epsilon_init
@@ -68,21 +68,20 @@ def train(
         done = False
         state = None
         while not done:
-
             if ep_frames < history_length:
                 if env_name.startswith("CartPole"):
-                    action = random.choice(list(agent.permitted_actions.keys()))
+                    action = env.action_space.sample()
                 else:
                     action = 0  # NOOP
             elif random.random() < epsilon:
-                action = random.choice(list(agent.permitted_actions.keys()))
+                action = env.action_space.sample()
             else:
                 action = agent.get_action(state)
 
             action_reward = 0
             for _ in range(history_length):
                 if not done:
-                    image, reward, done, _ = env.step(agent.permitted_actions[action])
+                    image, reward, done, _ = env.step(action)
                     image = torch.Tensor(rescale(image, env_name))
                     if ep_frames > 0:
                         image = torch.maximum(image, frame_buffer[-1])
@@ -118,22 +117,18 @@ def train(
         frames += ep_frames
         ep_rewards.append(ep_reward)
 
+        if ep % 10 == 0:
+            print(f"{datetime.now().strftime('%H:%M:%S')} - frame {frames}, episode {ep}")
+
         if save_every > 0 and ep % save_every == 0:
             agent.save_networks(f"{dirname}/{str(ep).zfill(7)}")
-
-        if save_every > 0 and ep > 0 and ep % save_every == 0:
-            last = sum(ep_rewards[-save_every:]) / save_every
-            total = sum(ep_rewards) / len(ep_rewards)
-            print(
-                f"{datetime.now().strftime('%H:%M:%S')} - "
-                f"frame {frames}, "
-                f"episode {ep}, "
-                f"mean reward (last {save_every}) = {last}, "
-                f"mean reward (total) = {total:.3f}"
-            )
-
-        elif ep % 10 == 0:
-            print(f"{datetime.now().strftime('%H:%M:%S')} - frame {frames}, episode {ep}")
+            if ep > 0:
+                last = sum(ep_rewards[-save_every:]) / save_every
+                total = sum(ep_rewards) / len(ep_rewards)
+                print(
+                    f"mean reward (last {save_every}) = {last}, "
+                    f"mean reward (total) = {total:.3f}"
+                )
 
     return agent
 
@@ -214,11 +209,6 @@ def main():
 
     env_name = args.env
     env = gym.make(env_name)
-
-    env.reset()
-    done = False
-    while not done:
-        _, _, done, _ = env.step(0)
 
     time = datetime.now().strftime("%Y%m%d_%H%M%S")
     dirname = os.path.abspath(
