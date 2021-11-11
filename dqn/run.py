@@ -1,6 +1,8 @@
 import argparse
+from collections import deque
 import cv2
 from datetime import datetime
+from memory_profiler import profile
 import os
 import numpy as np
 import random
@@ -9,59 +11,19 @@ import gym
 from gym.wrappers import Monitor
 import torch
 
-from dqn.agent import DQNAgent
-from dqn.replay import ReplayBuffer, Experience
+from agent import DQNAgent
+from replay import ReplayBuffer, Experience
 
 
-def preprocess_images(images, env_name, prev_image=None):
-
-    def rescale(image):
-        r = cv2.resize(image[0], (84, 84))
-        g = cv2.resize(image[1], (84, 84))
-        b = cv2.resize(image[2], (84, 84))
+def rescale(image, env_name):
+    if env_name.startswith("CartPole"):
+        return image
+    else:
+        r = cv2.resize(image[:, :, 0], (84, 84))
+        g = cv2.resize(image[:, :, 1], (84, 84))
+        b = cv2.resize(image[:, :, 2], (84, 84))
         y = 0.299 * r + 0.587 * g + 0.114 * b
         return np.stack([r, g, b, y], axis=0)
-
-    images = [torch.tensor(rescale(image)).float() for image in images]
-    processed_images = []
-    if env_name in ["Breakout-v4"]:
-        # N, color channels, frame depth, frame height, frame width
-        # 1,              4,           4,           84,          84
-        if prev_image is not None:
-            first_image = torch.maximum(prev_image[0, :, -1, :, :], images[0])
-        else:
-            first_image = images[0]
-        processed_images.append(first_image)
-        for i in range(1, len(images)):
-            processed_images.append(torch.maximum(images[i-1], images[i]))
-        processed_images = torch.stack(processed_images, dim=1).unsqueeze(0)
-
-    else:
-        processed_images = torch.tensor(images)
-
-    return processed_images
-
-
-def process_action(env, env_name, action, history_length, prev_image=None):
-    images = []
-    reward = 0
-    done = False
-    # aggregate images into state
-    for _ in range(history_length):
-        if not done:
-            image_next, r, done, _ = env.step(action)
-        images.append(image_next)
-        reward += r
-    state_next = preprocess_images(images, env_name, prev_image)
-    return state_next, reward, done
-
-
-def first_state(env, env_name, history_length):
-    # duplicate state `history_length` times... state is history_length * H * W
-    image = env.reset()
-    images = [image] * history_length
-    state = preprocess_images(images, env_name)
-    return state
 
 
 def train(
@@ -86,7 +48,6 @@ def train(
     replay = ReplayBuffer(exp_buffer_size)
     frame = 0
     ep_rewards = []
-
     for ep in range(num_episodes):
 
         # get probability of random action
@@ -100,25 +61,36 @@ def train(
             ) + epsilon_final * (frame / epsilon_final_frame)
 
         # setup episode
-        state = first_state(env, env_name, history_length)
+        image = torch.Tensor(rescale(env.reset(), env_name))
+        frame_buffer = deque([image], maxlen=history_length)
         ep_reward = 0
         done = False
-
+        state = None
         while not done:
 
-            # take one action (for at least one frame)
             if random.random() < epsilon:
                 action = env.action_space.sample()
             else:
                 action = agent.get_action(state)
-            state_next, reward, done = process_action(
-                env, env_name, action, history_length, prev_image=state
-            )
-            ep_reward += reward
-            frame += history_length
+
+            action_reward = 0
+            for _ in range(history_length):
+                if not done:
+                    image, reward, done, _ = env.step(action)
+                    image = torch.Tensor(rescale(image, env_name))
+                    if frame > 0:
+                        image = torch.maximum(image, frame_buffer[-1])
+                    action_reward += reward
+                frame_buffer.append(image)
+                frame += 1
+            ep_reward += action_reward
+
+            state_next = torch.stack(list(frame_buffer), dim=1).unsqueeze(0)
 
             # update gradients using experience replay
-            replay.append(Experience(state, action, reward, state_next, done))
+            if state is not None:
+                replay.append(Experience(state, action, action_reward, state_next, done))
+
             if len(replay) > minibatch_size:
                 exp_batch = replay.sample_experience(minibatch_size)
                 target_estimate = agent.get_q_target_estimate(exp_batch)
@@ -143,13 +115,17 @@ def train(
             agent.save_networks(f"{dirname}/{str(ep).zfill(7)}")
 
         if save_every > 0 and ep > 0 and ep % save_every == 0:
-            last = sum(ep_rewards[-save_every:]) / save_every
+            last = ep_rewards[-1]
             total = sum(ep_rewards) / len(ep_rewards)
             print(
+                f"{datetime.now().strftime('%H:%M:%S')} "
                 f"episode {ep}, "
-                f"mean reward (last {save_every}) = {last}, "
+                f"mean reward (last) = {last}, "
                 f"mean reward (total) = {total:.3f}, frame {frame}"
             )
+
+        if ep % 10 == 0:
+            print(f"{datetime.now().strftime('%H:%M:%S')} - episode {ep}")
 
     return agent
 
@@ -231,6 +207,11 @@ def main():
     env_name = args.env
     env = gym.make(env_name)
 
+    env.reset()
+    done = False
+    while not done:
+        _, _, done, _ = env.step(0)
+
     time = datetime.now().strftime("%Y%m%d_%H%M%S")
     dirname = os.path.abspath(
         f"../runs/{time}_{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_"
@@ -268,32 +249,6 @@ def main():
         save_every=args.save_every,
         dirname=dirname,
     )
-
-    # # run episodes
-    # rewards = []
-    # frames = []
-    # for _ in range(100):
-    #     state = first_state(env, env_name, args.history_length)
-    #     ep_reward = 0
-    #     done = False
-    #     frame = 0
-    #     while not done:
-    #         if random.random() < args.epsilon_final:
-    #             action = env.action_space.sample()
-    #         else:
-    #             action = agent.get_action(state)
-    #         state_next, reward, done = process_action(
-    #             env, env_name, action, args.history_length, prev_image=state
-    #         )
-    #         ep_reward += reward
-    #         state = state_next
-    #         frame += args.history_length
-    #     rewards.append(ep_reward)
-    #     frames.append(frame)
-    #     print(ep_reward, frame)
-    #
-    # print(sum(rewards) / len(rewards))
-    # print(sum(frames) / len(frames))
 
 
 if __name__ == "__main__":

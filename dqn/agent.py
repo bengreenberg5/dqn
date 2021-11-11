@@ -46,7 +46,7 @@ class DQNet(nn.Module):
 
 
 class DQNAgent:
-    def __init__(self, env_name, history_length, learning_rate, momentum, discount_factor):
+    def __init__(self, env_name, history_length=4, learning_rate=1e-4, momentum=0.95, discount_factor=0.99):
         self.env_name = env_name
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
@@ -60,8 +60,14 @@ class DQNAgent:
     def save_networks(self, dirname):
         if not os.path.exists(dirname):
             os.mkdir(dirname)
-        torch.save(self.q_net, f"{dirname}/q_net.pt")
-        torch.save(self.q_target, f"{dirname}/q_target.pt")
+        torch.save(self.q_net.state_dict(), f"{dirname}/q_net.pt")
+        torch.save(self.q_target.state_dict(), f"{dirname}/q_target.pt")
+
+    def load_networks(self, dirname, checkpoint):
+        assert os.path.exists(dirname), f"directory {dirname} does not exist"
+        checkpoint = str(checkpoint).zfill(7)
+        self.q_net.load_state_dict(torch.load(f"{dirname}/{checkpoint}/q_net.pt"))
+        self.q_target.load_state_dict(torch.load(f"{dirname}/{checkpoint}/q_target.pt"))
 
     def get_action(self, state):
         rewards = self.q_net(state)
