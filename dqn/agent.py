@@ -84,8 +84,7 @@ class DQNAgent:
 
     def get_action(self, state):
         rewards = self.q_net(state)
-        best_action = torch.argmax(rewards).item()
-        return self.permitted_actions[best_action]
+        return torch.argmax(rewards).item()
 
     def get_q_target_estimate(self, exp_batch):
         state_next_batch = torch.cat([exp.state_next for exp in exp_batch], dim=0)

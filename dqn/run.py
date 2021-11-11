@@ -77,7 +77,7 @@ def train(
             elif random.random() < epsilon:
                 action = env.action_space.sample()
             else:
-                action = agent.get_action(state)
+                action = agent.permitted_actions[agent.get_action(state)]
 
             action_reward = 0
             for _ in range(history_length):
