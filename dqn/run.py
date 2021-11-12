@@ -2,6 +2,7 @@ import argparse
 from collections import deque
 import cv2
 from datetime import datetime
+from line_profiler import LineProfiler
 from memory_profiler import profile
 import os
 import numpy as np
@@ -23,7 +24,7 @@ def rescale(image, env_name):
         g = cv2.resize(image[:, :, 1], (84, 84))
         b = cv2.resize(image[:, :, 2], (84, 84))
         y = 0.299 * r + 0.587 * g + 0.114 * b
-        return np.stack([r, g, b, y], axis=0)
+        return np.expand_dims(y, axis=0)
 
 
 def train(
@@ -44,11 +45,14 @@ def train(
     save_every=0,
     dirname="",
 ):
-    agent = DQNAgent(env_name, history_length, learning_rate, momentum, discount_factor)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     replay = ReplayBuffer(exp_buffer_size)
     frames = 0
+    actions = []
     ep_rewards = []
-    print(f"{datetime.now().strftime('%H:%M:%S')} - starting training")
+    agent = DQNAgent(env_name, history_length, learning_rate, momentum, discount_factor)
+
+    print(f"{datetime.now().strftime('%H:%M:%S')} - started training on {device}")
     for ep in range(num_episodes):
         # get probability of random action
         if frames < replay_start_frame:
@@ -61,9 +65,10 @@ def train(
             ) + epsilon_final * (frames / epsilon_final_frame)
 
         # setup episode
-        image = torch.Tensor(rescale(env.reset(), env_name))
+        image = torch.Tensor(rescale(env.reset(), env_name)).type(torch.uint8).to(device)
         frame_buffer = deque([image], maxlen=history_length)
         ep_frames = 0
+        ep_actions = {action: 0 for action in range(env.action_space.n)}
         ep_reward = 0
         done = False
         state = None
@@ -77,12 +82,13 @@ def train(
                 action = env.action_space.sample()
             else:
                 action = agent.get_action(state)
+            ep_actions[action] += 1
 
             action_reward = 0
             for _ in range(history_length):
                 if not done:
                     image, reward, done, _ = env.step(action)
-                    image = torch.Tensor(rescale(image, env_name))
+                    image = torch.Tensor(rescale(image, env_name)).type(torch.uint8).to(device)
                     if ep_frames > 0:
                         image = torch.maximum(image, frame_buffer[-1])
                     action_reward += reward
@@ -95,7 +101,7 @@ def train(
             # update gradients using experience replay
             if state is not None:
                 replay.append(
-                    Experience(state, action, action_reward, state_next, done)
+                    Experience(state.to("cpu"), action, action_reward, state_next.to("cpu"), done)
                 )
 
             if len(replay) > minibatch_size:
@@ -118,6 +124,7 @@ def train(
 
         frames += ep_frames
         ep_rewards.append(ep_reward)
+        actions.append(ep_actions)
 
         if ep % 10 == 0:
             print(
@@ -131,7 +138,8 @@ def train(
                 total = sum(ep_rewards) / len(ep_rewards)
                 print(
                     f"mean reward (last {save_every}) = {last}, "
-                    f"mean reward (total) = {total:.3f}"
+                    f"mean reward (total) = {total:.3f}, "
+                    f"last action distribution: {actions[-1]}"
                 )
 
     return agent
@@ -233,7 +241,9 @@ def main():
             force=True,
         )
 
-    agent = train(
+    lp = LineProfiler()
+    lp_wrapper = lp(train)
+    lp_wrapper(
         env=env,
         env_name=env_name,
         history_length=args.history_length,
@@ -251,6 +261,7 @@ def main():
         save_every=args.save_every,
         dirname=dirname,
     )
+    lp.print_stats()
 
 
 if __name__ == "__main__":

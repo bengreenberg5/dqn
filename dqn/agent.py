@@ -27,7 +27,7 @@ class DQNet(nn.Module):
         elif env_name in ["Breakout-v4"]:
             self.layers = [
                 nn.Conv3d(
-                    in_channels=4,
+                    in_channels=1,
                     out_channels=32,
                     kernel_size=(1, 8, 8),
                     stride=(1, 4, 4),
@@ -77,7 +77,8 @@ class DQNAgent:
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
 
-        self.q_net = DQNet(env_name, history_length)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.q_net = DQNet(env_name, history_length).to(self.device)
         self.q_target = deepcopy(self.q_net)
         self.optimizer = torch.optim.RMSprop(
             self.q_net.parameters(), lr=learning_rate, momentum=momentum
@@ -96,21 +97,21 @@ class DQNAgent:
         self.q_target.load_state_dict(torch.load(f"{dirname}/{checkpoint}/q_target.pt"))
 
     def get_action(self, state):
-        rewards = self.q_net(state)
+        rewards = self.q_net(state.float().to(self.device))
         return torch.argmax(rewards).item()
 
     def get_q_target_estimate(self, exp_batch):
-        state_next_batch = torch.cat([exp.state_next for exp in exp_batch], dim=0)
-        reward_batch = torch.tensor([exp.reward for exp in exp_batch])
-        not_done_batch = torch.tensor([not exp.done for exp in exp_batch])
-        q_batch = self.q_target(state_next_batch)
+        state_next_batch = torch.cat([exp.state_next.float() for exp in exp_batch], dim=0).to(self.device)
+        reward_batch = torch.tensor([exp.reward for exp in exp_batch]).to(self.device)
+        not_done_batch = torch.tensor([not exp.done for exp in exp_batch]).to(self.device)
+        q_batch = self.q_target(state_next_batch.to(self.device))
         return reward_batch + self.discount_factor * not_done_batch * q_batch.amax(
             axis=1
         )
 
     def get_q_value_estimate(self, exp_batch):
-        state_batch = torch.cat([exp.state for exp in exp_batch], dim=0)
-        action_batch = torch.tensor([exp.action for exp in exp_batch])
+        state_batch = torch.cat([exp.state.float() for exp in exp_batch], dim=0).to(self.device)
+        action_batch = torch.tensor([exp.action for exp in exp_batch]).to(self.device)
         values = self.q_net(state_batch)
         return values.masked_select(
             F.one_hot(action_batch, num_classes=self.q_net.num_outputs).bool()
