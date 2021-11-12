@@ -65,7 +65,9 @@ def train(
             ) + epsilon_final * (frames / epsilon_final_frame)
 
         # setup episode
-        image = torch.Tensor(rescale(env.reset(), env_name)).type(torch.uint8).to(device)
+        image = (
+            torch.Tensor(rescale(env.reset(), env_name)).type(torch.uint8).to(device)
+        )
         frame_buffer = deque([image], maxlen=history_length)
         ep_frames = 0
         ep_actions = {action: 0 for action in range(env.action_space.n)}
@@ -88,7 +90,11 @@ def train(
             for _ in range(history_length):
                 if not done:
                     image, reward, done, _ = env.step(action)
-                    image = torch.Tensor(rescale(image, env_name)).type(torch.uint8).to(device)
+                    image = (
+                        torch.Tensor(rescale(image, env_name))
+                        .type(torch.uint8)
+                        .to(device)
+                    )
                     if ep_frames > 0:
                         image = torch.maximum(image, frame_buffer[-1])
                     action_reward += reward
@@ -101,7 +107,13 @@ def train(
             # update gradients using experience replay
             if state is not None:
                 replay.append(
-                    Experience(state.to("cpu"), action, action_reward, state_next.to("cpu"), done)
+                    Experience(
+                        state.to("cpu"),
+                        action,
+                        action_reward,
+                        state_next.to("cpu"),
+                        done,
+                    )
                 )
 
             if len(replay) > minibatch_size:
