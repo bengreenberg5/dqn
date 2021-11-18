@@ -74,6 +74,7 @@ class DQNAgent:
         discount_factor=0.99,
     ):
         self.env_name = env_name
+        self.history_length = history_length
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
 

@@ -74,8 +74,11 @@ def train(
         ep_reward = 0
         done = False
         state = None
+        repeating = 0
         while not done:
-            if ep_frames < history_length:
+            if repeating >= 8:
+                action = 1  # FIRE
+            elif ep_frames < history_length:
                 if env_name.startswith("CartPole"):
                     action = env.action_space.sample()
                 else:
@@ -115,6 +118,10 @@ def train(
                         done,
                     )
                 )
+                if torch.equal(state, state_next):
+                    repeating += 1
+                else:
+                    repeating = 0
 
             if len(replay) > minibatch_size:
                 exp_batch = replay.sample_experience(minibatch_size)
