@@ -73,10 +73,13 @@ def train(
         ep_actions = {action: 0 for action in range(env.action_space.n)}
         ep_reward = 0
         done = False
+        info = None
         state = None
         repeating = 0
         while not done:
+            save_replay = True
             if repeating >= 8:
+                save_replay = False
                 action = 1  # FIRE
             elif ep_frames < history_length:
                 if env_name.startswith("CartPole"):
@@ -92,7 +95,7 @@ def train(
             action_reward = 0
             for _ in range(history_length):
                 if not done:
-                    image, reward, done, _ = env.step(action)
+                    image, reward, done, info = env.step(action)
                     image = (
                         torch.Tensor(rescale(image, env_name))
                         .type(torch.uint8)
@@ -108,7 +111,7 @@ def train(
             state_next = torch.stack(list(frame_buffer), dim=1).unsqueeze(0)
 
             # update gradients using experience replay
-            if state is not None:
+            if state is not None and save_replay:
                 replay.append(
                     Experience(
                         state.to("cpu"),
