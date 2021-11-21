@@ -10,9 +10,17 @@ Experience = namedtuple(
 
 
 # container for experience replay
-class ReplayBuffer(deque):
-    def __init__(self, maxlen):
-        deque.__init__(self, [], maxlen)
+class ReplayBuffer():
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.size = 0
+        self.position = 0
+        self.experience = [None] * self.capacity
+
+    def append(self, exp):
+        self.experience[self.position] = exp
+        self.size = min(self.size + 1, self.capacity)
+        self.position = (self.position + 1) % self.capacity
 
     def sample_experience(self, minibatch_size):
-        return random.sample(self, minibatch_size)
+        return random.sample(self.experience[:self.size], minibatch_size)

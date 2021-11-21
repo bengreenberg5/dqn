@@ -93,7 +93,7 @@ def train(
             ep_actions[action] += 1
 
             action_reward = 0
-            for _ in range(history_length):
+            for f in range(history_length):
                 if not done:
                     image, reward, done, info = env.step(action)
                     image = (
@@ -126,11 +126,13 @@ def train(
                 else:
                     repeating = 0
 
-            if len(replay) > minibatch_size:
+            if replay.size > minibatch_size:
                 exp_batch = replay.sample_experience(minibatch_size)
                 target_estimate = agent.get_q_target_estimate(exp_batch)
                 value_estimate = agent.get_q_value_estimate(exp_batch)
                 loss = torch.nn.MSELoss()(value_estimate, target_estimate)
+
+                # TODO for each state/state_next, look at 4 frames
 
                 # update gradient
                 agent.optimizer.zero_grad()

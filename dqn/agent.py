@@ -24,7 +24,7 @@ class DQNet(nn.Module):
             ]
 
         # Breakout: 3 conv layers with ReLU
-        elif env_name in ["Breakout-v4"]:
+        elif env_name.startswith("Breakout"):
             self.layers = [
                 nn.Conv3d(
                     in_channels=1,
