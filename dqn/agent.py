@@ -85,13 +85,13 @@ class DQNAgent:
             self.q_net.parameters(), lr=learning_rate, momentum=momentum
         )
 
-    def save_networks(self, dirname):
+    def save_nets(self, dirname):
         if not os.path.exists(dirname):
             os.mkdir(dirname)
         torch.save(self.q_net.state_dict(), f"{dirname}/q_net.pt")
         torch.save(self.q_target.state_dict(), f"{dirname}/q_target.pt")
 
-    def load_networks(self, dirname, checkpoint):
+    def load_nets(self, dirname, checkpoint):
         assert os.path.exists(dirname), f"directory {dirname} does not exist"
         checkpoint = str(checkpoint).zfill(7)
         self.q_net.load_state_dict(torch.load(f"{dirname}/{checkpoint}/q_net.pt"))
@@ -101,7 +101,7 @@ class DQNAgent:
         rewards = self.q_net(state.float().to(self.device))
         return torch.argmax(rewards).item()
 
-    def get_q_target_estimate(self, exp_batch):
+    def q_target_estimate(self, exp_batch):
         state_next_batch = torch.cat(
             [exp.state_next.float() for exp in exp_batch], dim=0
         ).to(self.device)
@@ -114,7 +114,7 @@ class DQNAgent:
             axis=1
         )
 
-    def get_q_value_estimate(self, exp_batch):
+    def q_value_estimate(self, exp_batch):
         state_batch = torch.cat([exp.state.float() for exp in exp_batch], dim=0).to(
             self.device
         )
