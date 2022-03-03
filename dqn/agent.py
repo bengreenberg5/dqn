@@ -6,6 +6,7 @@ import torch.nn as nn
 
 
 class QNet(nn.Module):
+
     def __init__(self, num_outputs, layers, device):
         super().__init__()
         self.num_outputs = num_outputs
@@ -38,6 +39,7 @@ class QNet(nn.Module):
 
 
 class LinearQNet(QNet):
+
     def __init__(self, num_inputs, num_outputs, linear_layers=None, device="cpu"):
         super().__init__(num_outputs, linear_layers, device)
         self.num_inputs = num_inputs
@@ -55,6 +57,7 @@ class LinearQNet(QNet):
 
 
 class ConvQNet(QNet):
+
     def __init__(self, num_outputs, device="cpu"):
         layers = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=8, stride=4),
@@ -73,6 +76,8 @@ class ConvQNet(QNet):
 
 
 class DQNAgent:
+
+    @gin.configurable
     def __init__(
         self,
         network_type="linear",

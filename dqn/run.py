@@ -1,17 +1,12 @@
-import argparse
-from collections import deque
-from copy import deepcopy
-import cv2
 from datetime import datetime
+import gin
 import os
 import numpy as np
-import random
 from tqdm import tqdm
 
 import gym
 from gym.wrappers import Monitor, AtariPreprocessing
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 from agent import DQNAgent
@@ -42,6 +37,7 @@ def evaluate(env, agent, epsilon):
     return rewards
 
 
+@gin.configurable
 def train(
     env_name,
     total_frames,
@@ -51,8 +47,6 @@ def train(
     epsilon_end=0.1,
     epsilon_decay_frames=1_000_000,
     replay_start_frame=50_000,
-    learning_rate=2.5e-4,
-    momentum=0.95,
     discount_factor=0.99,
     train_every=4,
     update_target_every=10_000,
@@ -72,6 +66,7 @@ def train(
     :param epsilon_end:
     :param epsilon_decay_frames:
     :param replay_start_frame:
+    :param discount_factor:
     :param train_every:
     :param update_target_every:
     :param eval_every:
@@ -109,7 +104,7 @@ def train(
 
         # set up episode
         if frame >= eval_at:
-            checkpoint = str(eval_at).zfill(8)
+            checkpoint = str(eval_at).zfill(7)
             eval_env = Monitor(env, f"{dirname}/{checkpoint}/", force=True)
             # video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env)
             rewards = [evaluate(eval_env, agent, epsilon=eval_epsilon) for _ in range(eval_episodes)]
@@ -170,93 +165,12 @@ def train(
 
 
 def main():
-    # training args
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--env", default="CartPole-v1", type=str, help="gym environment name"
-    )
-    parser.add_argument(
-        "--history_length",
-        default=4,
-        type=int,
-        help="number of recent frames input to Q-networks",
-    )
-    parser.add_argument(
-        "--num_episodes",
-        default=10_000,
-        type=int,
-        help="how many episodes to train for",
-    )
-    parser.add_argument(
-        "--minibatch_size",
-        default=32,
-        type=int,
-        help="number of experiences per gradient step",
-    )
-    parser.add_argument(
-        "--exp_buffer_size",
-        default=1_000_000,
-        type=int,
-        help="number of experiences to store",
-    )
-    parser.add_argument(
-        "--epsilon_init", default=1, type=int, help="initial exploration value"
-    )
-    parser.add_argument(
-        "--epsilon_final", default=0.1, type=float, help="final exploration value"
-    )
-    parser.add_argument(
-        "--epsilon_final_frame",
-        default=1_000_000,
-        type=int,
-        help="the number of frames over which epsilon is linearly annealed to its final value",
-    )
-    parser.add_argument(
-        "--replay_start_frame",
-        default=50_000,
-        type=int,
-        help="how many frames of random play before learning starts",
-    )
-    parser.add_argument(
-        "--q_target_update_freq",
-        default=10_000,
-        type=int,
-        help="initial exploration coefficient",
-    )
-    parser.add_argument(
-        "--learning_rate", default=2.5e-4, type=float, help="optimizer learning rate"
-    )
-    parser.add_argument(
-        "--momentum", default=0.95, type=float, help="alpha / optimizer learning rate"
-    )
-    parser.add_argument(
-        "--discount_factor",
-        default=0.99,
-        type=float,
-        help="gamma / target discount factor",
-    )
-    parser.add_argument(
-        "--save_every",
-        default=0,
-        type=int,
-        help="how often to save model weights and video (0 to not save)",
-    )
-    args = parser.parse_args()
-
-    env_name = args.env
-
     time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    dirname = os.path.abspath(
-        f"../runs/{time}_{env_name}_{args.history_length}_{args.num_episodes}_{args.minibatch_size}_"
-        f"{args.exp_buffer_size}_{args.epsilon_init}_{args.epsilon_final}_{args.epsilon_final_frame}_"
-        f"{args.replay_start_frame}_{args.q_target_update_freq}_{args.learning_rate}_{args.momentum}_"
-        f"{args.discount_factor}"
-    )
-
+    dirname = os.path.abspath(f"../runs/{time}/")
     if not os.path.exists(dirname):
         os.mkdir(dirname)
 
-    train(...)  # TODO
+    train()
 
 if __name__ == "__main__":
     main()

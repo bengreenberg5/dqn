@@ -9,8 +9,11 @@ Experience = namedtuple(
 )
 
 
-# container for experience replay
 class ReplayBuffer:
+    """
+    Create a circular buffer for experience replay
+    :param capacity: maximum buffer size
+    """
     def __init__(self, capacity):
         self.capacity = capacity
         self.size = 0
