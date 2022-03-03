@@ -1,7 +1,5 @@
 from collections import deque, namedtuple
-import numpy as np
 import random
-import torch
 
 
 Experience = namedtuple(

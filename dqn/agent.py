@@ -1,6 +1,6 @@
 from copy import deepcopy
+import gin
 import os
-
 import torch
 import torch.nn as nn
 
@@ -83,7 +83,6 @@ class DQNAgent:
         network_type="linear",
         learning_rate=1e-4,
         momentum=0.95,
-        discount_factor=0.99,
         linear_layers=None,
         device="cpu",
     ):
@@ -91,14 +90,12 @@ class DQNAgent:
         :param network_type: "linear" or "conv"
         :param learning_rate:
         :param momentum:
-        :param discount_factor:
         :param linear_layers: Sizes of linear layers; ignored for conv net
         :param device:
         """
         assert network_type in ("linear", "conv"), f"unknown network type `{network_type}`"
 
         self.network_type = network_type
-        self.discount_factor = discount_factor
         self.device = device
 
         if network_type == "linear":
