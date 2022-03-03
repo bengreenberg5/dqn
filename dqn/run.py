@@ -168,6 +168,7 @@ def train(
                 ).squeeze()
                 loss = F.mse_loss(q_value_est, rewards + discount_factor * q_target_est)
                 loss.backward()
+                agent.apply_grad()
 
         ep_rewards += ep_reward
 
