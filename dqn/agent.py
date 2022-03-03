@@ -7,101 +7,87 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class DQNet(nn.Module):
-    def __init__(self, env_name, history_length):
+class QNet(nn.Module):
+    def __init__(self, num_inputs, num_outputs, layers=None, device="cpu"):
+        """
+        Create a Q-network
+        :param num_inputs:
+        :param num_outputs:
+        :param layers: Sizes of linear layers. If None, set up default Atari network:
+        :param device: Train with "cpu" or "cuda"
+        """
         nn.Module.__init__(self)
-        self.num_outputs = gym.make(env_name).action_space.n
+        self.num_inputs = num_inputs
+        self.num_outputs = num_outputs
 
-        # CartPole: 2 linear layers with ReLU
-        if env_name.startswith("CartPole"):
-            num_inputs = 4
-            self.layers = [
-                nn.Linear(num_inputs, 50),
-                nn.ReLU(),
-                nn.Linear(50, 25),
-                nn.ReLU(),
-                nn.Linear(25, self.num_outputs),
-            ]
-
-        # Breakout: 3 conv layers with ReLU
-        elif env_name.startswith("Breakout"):
-            self.layers = [
-                nn.Conv3d(
-                    in_channels=1,
-                    out_channels=32,
-                    kernel_size=(1, 8, 8),
-                    stride=(1, 4, 4),
-                    padding="valid",
-                ),
-                nn.ReLU(),
-                nn.Conv3d(
-                    in_channels=32,
-                    out_channels=64,
-                    kernel_size=(1, 4, 4),
-                    stride=(1, 2, 2),
-                    padding="valid",
-                ),
-                nn.ReLU(),
-                nn.Conv3d(
-                    in_channels=64,
-                    out_channels=64,
-                    kernel_size=(1, 3, 3),
-                    stride=(1, 1, 1),
-                    padding="valid",
-                ),
-                nn.ReLU(),
-                nn.Flatten(),
-                nn.Linear(in_features=64 * history_length * 7 * 7, out_features=512),
-                nn.ReLU(),
-                nn.Linear(in_features=512, out_features=self.num_outputs),
-            ]
-
-        self.layers = nn.ModuleList(self.layers)
+        if not layers:
+            pass  # TODO make atari
+        else:
+            layer_list = [nn.Linear(num_inputs, layers[0])]
+            for i in range(1, len(layers)):
+                layer_list.append(nn.Linear(layers[i - 1], layers[i]))
+                layer_list.append(nn.ReLU())
+            layer_list.append(nn.Linear(layers[-1], self.num_outputs))
+            self.layers = nn.Sequential(*layer_list)
 
     def forward(self, x):
         for layer in self.layers:
             x = layer(x)
         return x
 
+    def save(self, dirname, target=False):
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
+        fname = "q_net.pt" if not target else "q_target.pt"
+        torch.save(self.q_net.state_dict(), f"{dirname}/{fname}.pt")
+
+    def load(self, dirname, checkpoint, target=False):
+        assert os.path.exists(dirname), f"directory {dirname} does not exist"
+        checkpoint = str(checkpoint).zfill(7)
+        fname = "q_net.pt" if not target else "q_target.pt"
+        self.q_net.load_state_dict(torch.load(f"{dirname}/{checkpoint}/{fname}"))
+
 
 class DQNAgent:
     def __init__(
         self,
         env_name,
-        history_length=4,
         learning_rate=1e-4,
         momentum=0.95,
         discount_factor=0.99,
+        device="cpu",
     ):
+        """
+        TODO
+        :param env_name:
+        :param learning_rate:
+        :param momentum:
+        :param discount_factor:
+        :param device:
+        """
+        self.q_net = None  # TODO
+        self.q_target = None  # TODO
         self.env_name = env_name
-        self.history_length = history_length
         self.learning_rate = learning_rate
+        self.momentum = momentum
         self.discount_factor = discount_factor
-
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.q_net = DQNet(env_name, history_length).to(self.device)
-        self.q_target = deepcopy(self.q_net)
         self.optimizer = torch.optim.RMSprop(
             self.q_net.parameters(), lr=learning_rate, momentum=momentum
         )
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.q_net = QNet(env_name).to(self.device)
+        self.q_target = deepcopy(self.q_net)
 
-    def save_nets(self, dirname):
-        if not os.path.exists(dirname):
-            os.mkdir(dirname)
-        torch.save(self.q_net.state_dict(), f"{dirname}/q_net.pt")
         torch.save(self.q_target.state_dict(), f"{dirname}/q_target.pt")
-
-    def load_nets(self, dirname, checkpoint):
-        assert os.path.exists(dirname), f"directory {dirname} does not exist"
-        checkpoint = str(checkpoint).zfill(7)
-        self.q_net.load_state_dict(torch.load(f"{dirname}/{checkpoint}/q_net.pt"))
-        self.q_target.load_state_dict(torch.load(f"{dirname}/{checkpoint}/q_target.pt"))
 
     def get_action(self, state):
         rewards = self.q_net(state.float().to(self.device))
         return torch.argmax(rewards).item()
 
-    def q_target_estimate(self, exp_batch):
+    def zero_grad(self):
+        pass
+
+    def q_target_estimate(self, state_nexts):
         state_next_batch = torch.cat(
             [exp.state_next.float() for exp in exp_batch], dim=0
         ).to(self.device)
@@ -114,7 +100,7 @@ class DQNAgent:
             axis=1
         )
 
-    def q_value_estimate(self, exp_batch):
+    def q_value_estimate(self, states):  # TODO rename
         state_batch = torch.cat([exp.state.float() for exp in exp_batch], dim=0).to(
             self.device
         )

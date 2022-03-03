@@ -10,12 +10,15 @@ Experience = namedtuple(
 
 
 # container for experience replay
-class ReplayBuffer():
+class ReplayBuffer:
     def __init__(self, capacity):
         self.capacity = capacity
         self.size = 0
         self.position = 0
         self.experience = [None] * self.capacity
+
+    def __len__(self):
+        return self.size
 
     def append(self, exp):
         self.experience[self.position] = exp
@@ -23,4 +26,4 @@ class ReplayBuffer():
         self.position = (self.position + 1) % self.capacity
 
     def sample_experience(self, minibatch_size):
-        return random.sample(self.experience[:self.size], minibatch_size)
+        return random.sample(self.experience[: self.size], minibatch_size)

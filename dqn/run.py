@@ -1,172 +1,178 @@
 import argparse
 from collections import deque
+from copy import deepcopy
 import cv2
 from datetime import datetime
-from line_profiler import LineProfiler
-from memory_profiler import profile
 import os
 import numpy as np
 import random
+from tqdm import tqdm
 
 import gym
-from gym.wrappers import Monitor
+from gym.wrappers import Monitor, AtariPreprocessing
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 from agent import DQNAgent
 from replay import ReplayBuffer, Experience
 
 
-def rescale(image, env_name):
-    if env_name.startswith("CartPole"):
-        return image
-    else:
-        r = cv2.resize(image[:, :, 0], (84, 84))
-        g = cv2.resize(image[:, :, 1], (84, 84))
-        b = cv2.resize(image[:, :, 2], (84, 84))
-        y = 0.299 * r + 0.587 * g + 0.114 * b
-        return np.expand_dims(y, axis=0)
+def evaluate(
+    env,
+    agent,
+    epsilon,
+):
+    """
+
+    :param env:
+    :param agent:
+    :param epsilon:
+    :return:
+    """
+    return 0.0  # TODO evaluate and save videos
+
+
+def make_policy():
+    """
+    TODO
+    :return:
+    """
+    pass
 
 
 def train(
-    env,
     env_name,
-    history_length,
-    num_episodes,
+    total_frames,
     minibatch_size=32,
     exp_buffer_size=1_000_000,
-    epsilon_init=1.0,
-    epsilon_final=0.1,
-    epsilon_final_frame=1_000_000,
+    epsilon_start=1.0,
+    epsilon_end=0.1,
+    epsilon_decay_frames=1_000_000,
     replay_start_frame=50_000,
-    q_target_update_freq=10_000,
     learning_rate=2.5e-4,
     momentum=0.95,
     discount_factor=0.99,
-    save_every=0,
+    train_every=4,
+    update_target_every=10_000,
+    save_every=50_000,
+    eval_every=10_000,
+    eval_epsilon=0.05,
+    eval_episodes=10,
     dirname="",
+    device="cpu",
 ):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    replay = ReplayBuffer(exp_buffer_size)
-    frames = 0
-    actions = []
-    ep_rewards = []
-    agent = DQNAgent(env_name, history_length, learning_rate, momentum, discount_factor)
+    """
+    TODO
+    :param env_name:
+    :param total_frames:
+    :param minibatch_size:
+    :param exp_buffer_size:
+    :param epsilon_start:
+    :param epsilon_end:
+    :param epsilon_decay_frames:
+    :param replay_start_frame:
+    :param learning_rate:
+    :param momentum:
+    :param discount_factor:
+    :param train_every:
+    :param update_target_every:
+    :param save_every:
+    :param eval_every:
+    :param eval_epsilon:
+    :param eval_episodes:
+    :param dirname:
+    :param device:
+    :return:
+    """
+    env = gym.make(env_name)
+    agent = DQNAgent(...)  # TODO
+    replay_buffer = ReplayBuffer(exp_buffer_size)
 
-    print(f"{datetime.now().strftime('%H:%M:%S')} - started training on {device}")
-    for ep in range(num_episodes):
-        # get probability of random action
-        if frames < replay_start_frame:
-            epsilon = epsilon_init
-        elif frames >= epsilon_final_frame:
-            epsilon = epsilon_final
-        else:
-            epsilon = epsilon_init * (
-                1 - frames / epsilon_final_frame
-            ) + epsilon_final * (frames / epsilon_final_frame)
-
-        # setup episode
-        image = (
-            torch.Tensor(rescale(env.reset(), env_name)).type(torch.uint8).to(device)
+    if save_every > 0:
+        env = Monitor(
+            env,
+            f"{dirname}/videos",
+            video_callable=lambda ep: ep % save_every == 0,
+            force=True,
         )
-        frame_buffer = deque([image], maxlen=history_length)
-        ep_frames = 0
-        ep_actions = {action: 0 for action in range(env.action_space.n)}
-        ep_reward = 0
+        # video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env)
+    if env_name.startswith("Breakout"):
+        env = AtariPreprocessing(
+            env,
+            noop_max=30,
+            frame_skip=4,
+            screen_size=84,
+            terminal_on_life_loss=False,
+            grayscale_obs=True,
+        )
+
+    frame = 0
+    pbar = tqdm(total=total_frames)
+    ep_rewards = []
+    eval_at = 0
+    update_target_at = 0
+    print(f"{datetime.now().strftime('%H:%M:%S')} - started training on {device}")
+
+    while frame < total_frames:
+        if frame >= eval_at:
+            eval_env = env  # monitor_env if eval_at % render_every == 0 else env
+            rewards = [
+                evaluate(eval_env, agent, epsilon=eval_epsilon)
+                for _ in range(eval_episodes)
+            ]  # TODO evaluate
+            print(f"step {eval_at}: mean reward = {sum(rewards) / len(rewards):.2f}")
+            eval_at += eval_every
+        if frame > update_target_at:
+            agent.reset_target()
+            update_target_at += train_every * update_target_every
+        state = torch.tensor(env.reset(), dtype=torch.float32)
         done = False
-        info = None
-        state = None
-        repeating = 0
+        ep_reward = 0.0
+        if frame >= replay_start_frame:
+            epsilon_decay_frac = min(frame, epsilon_decay_frames) / epsilon_decay_frames
+            epsilon = epsilon_start + epsilon_decay_frac * (epsilon_end - epsilon_start)
+        else:
+            epsilon = 1.0
+
         while not done:
-            save_replay = True
-            if repeating >= 8:
-                save_replay = False
-                action = 1  # FIRE
-            elif ep_frames < history_length:
-                if env_name.startswith("CartPole"):
-                    action = env.action_space.sample()
-                else:
-                    action = 0  # NOOP
-            elif random.random() < epsilon:
+
+            # run episode
+            if np.random.random() < epsilon:
                 action = env.action_space.sample()
             else:
                 action = agent.get_action(state)
-            ep_actions[action] += 1
-
-            action_reward = 0
-            for f in range(history_length):
-                if not done:
-                    image, reward, done, info = env.step(action)
-                    image = (
-                        torch.Tensor(rescale(image, env_name))
-                        .type(torch.uint8)
-                        .to(device)
-                    )
-                    if ep_frames > 0:
-                        image = torch.maximum(image, frame_buffer[-1])
-                    action_reward += reward
-                frame_buffer.append(image)
-            ep_frames += history_length
-            ep_reward += action_reward
-
-            state_next = torch.stack(list(frame_buffer), dim=1).unsqueeze(0)
-
-            # update gradients using experience replay
-            if state is not None and save_replay:
-                replay.append(
-                    Experience(
-                        state.to("cpu"),
-                        action,
-                        action_reward,
-                        state_next.to("cpu"),
-                        done,
-                    )
-                )
-                if torch.equal(state, state_next):
-                    repeating += 1
-                else:
-                    repeating = 0
-
-            if replay.size > minibatch_size:
-                exp_batch = replay.sample_experience(minibatch_size)
-                target_estimate = agent.get_q_target_estimate(exp_batch)
-                value_estimate = agent.get_q_value_estimate(exp_batch)
-                loss = torch.nn.MSELoss()(value_estimate, target_estimate)
-
-                # TODO for each state/state_next, look at 4 frames
-
-                # update gradient
-                agent.optimizer.zero_grad()
-                loss.backward()
-                agent.optimizer.step()
-
-                # update target net
-                if (frames / history_length) % q_target_update_freq == 0:
-                    agent.reset_target()
-
-            # update state
+            state_next, reward, done, _ = env.step(action)
+            state_next = torch.tensor(state_next)
+            replay_buffer.append(Experience(state, action, reward, state_next, done))
+            ep_reward += reward
             state = state_next
+            frame += 1
+            pbar.update(1)
 
-        frames += ep_frames
-        ep_rewards.append(ep_reward)
-        actions.append(ep_actions)
+            # train Q-net
+            if frame % train_every == 0 and len(replay_buffer) >= minibatch_size:
+                exps = replay_buffer.sample_experience(minibatch_size)
+                states = torch.cat([exp.state for exp in exps]).to(device)
+                actions = torch.tensor([exp.action for exp in exps]).to(device)
+                rewards = torch.tensor([exp.reward for exp in exps]).to(device)
+                state_nexts = torch.cat([exp.state_next for exp in exps]).to(device)
+                dones = torch.tensor([exp.done for exp in exps]).to(device)
 
-        if ep % 10 == 0:
-            print(
-                f"{datetime.now().strftime('%H:%M:%S')} - frame {frames}, episode {ep}"
-            )
-
-        if save_every > 0 and ep % save_every == 0:
-            agent.save_networks(f"{dirname}/{str(ep).zfill(7)}")
-            if ep > 0:
-                last = sum(ep_rewards[-save_every:]) / save_every
-                total = sum(ep_rewards) / len(ep_rewards)
-                print(
-                    f"mean reward (last {save_every}) = {last}, "
-                    f"mean reward (total) = {total:.3f}, "
-                    f"last action distribution: {actions[-1]}"
+                q_value_est = agent.q_value_estimate(states).gather(1, actions.unsqueeze(-1)).squeeze()
+                best_actions = (
+                    agent.q_value_estimate(state_nexts).detach().argmax(dim=1)
                 )
+                q_target_est = dones * agent.q_target_estimate(state_nexts).detach().gather(
+                    1, best_actions.unsqueeze(-1)
+                ).squeeze()
+                loss = F.mse_loss(q_value_est, rewards + discount_factor * q_target_est)
+                loss.backward()
 
-    return agent
+        ep_rewards += ep_reward
+
+    pbar.close()
+    return agent, ep_rewards
 
 
 def main():
@@ -244,7 +250,6 @@ def main():
     args = parser.parse_args()
 
     env_name = args.env
-    env = gym.make(env_name)
 
     time = datetime.now().strftime("%Y%m%d_%H%M%S")
     dirname = os.path.abspath(
@@ -257,36 +262,7 @@ def main():
     if not os.path.exists(dirname):
         os.mkdir(dirname)
 
-    if args.save_every > 0:
-        env = Monitor(
-            env,
-            f"{dirname}/videos",
-            video_callable=lambda ep: ep % args.save_every == 0,
-            force=True,
-        )
-
-    lp = LineProfiler()
-    lp_wrapper = lp(train)
-    lp_wrapper(
-        env=env,
-        env_name=env_name,
-        history_length=args.history_length,
-        num_episodes=args.num_episodes,
-        minibatch_size=args.minibatch_size,
-        exp_buffer_size=args.exp_buffer_size,
-        epsilon_init=args.epsilon_init,
-        epsilon_final=args.epsilon_final,
-        epsilon_final_frame=args.epsilon_final_frame,
-        replay_start_frame=args.replay_start_frame,
-        q_target_update_freq=args.q_target_update_freq,
-        learning_rate=args.learning_rate,
-        momentum=args.momentum,
-        discount_factor=args.discount_factor,
-        save_every=args.save_every,
-        dirname=dirname,
-    )
-    lp.print_stats()
-
+    train(...)  # TODO
 
 if __name__ == "__main__":
     main()
