@@ -17,8 +17,8 @@ class QNet(nn.Module):
             x = x.to(self.device)
         return self.layers(x)
 
-    def get_best_actions(self, states):
-        return self.forward(states).argmax(dim=1)
+    def get_best_action(self, state):
+        return self.forward(state).argmax(dim=-1)
 
     def est_values(self, states, actions, grad=True):
         if grad:
@@ -38,16 +38,16 @@ class QNet(nn.Module):
 
 
 class LinearQNet(QNet):
-    def __init__(self, num_inputs, num_outputs, layers=None, device="cpu"):
-        super().__init__(num_outputs, layers, device)
+    def __init__(self, num_inputs, num_outputs, linear_layers=None, device="cpu"):
+        super().__init__(num_outputs, linear_layers, device)
         self.num_inputs = num_inputs
-        if not layers:
+        if not linear_layers:
             layers = [50, 50]
-        layer_list = [nn.Linear(num_inputs, layers[0]), nn.ReLU()]
-        for i in range(1, len(layers)):
-            layer_list.append(nn.Linear(layers[i - 1], layers[i]))
+        layer_list = [nn.Linear(num_inputs, linear_layers[0]), nn.ReLU()]
+        for i in range(1, len(linear_layers)):
+            layer_list.append(nn.Linear(linear_layers[i - 1], linear_layers[i]))
             layer_list.append(nn.ReLU())
-        layer_list.append(nn.Linear(layers[-1], self.num_outputs))
+        layer_list.append(nn.Linear(linear_layers[-1], self.num_outputs))
         self.layers = nn.Sequential(*layer_list).to(device)
 
     def forward(self, x):
@@ -79,7 +79,7 @@ class DQNAgent:
         learning_rate=1e-4,
         momentum=0.95,
         discount_factor=0.99,
-        layers=None,
+        linear_layers=None,
         device="cpu",
     ):
         """
@@ -87,7 +87,7 @@ class DQNAgent:
         :param learning_rate:
         :param momentum:
         :param discount_factor:
-        :param layers: Sizes of linear layers; ignored for conv net
+        :param linear_layers: Sizes of linear layers; ignored for conv net
         :param device:
         """
         assert network_type in ("linear", "conv"), f"unknown network type `{network_type}`"
@@ -97,7 +97,7 @@ class DQNAgent:
         self.device = device
 
         if network_type == "linear":
-            self.q_act = LinearQNet(num_inputs=4, num_outputs=4, layers=layers, device=device)
+            self.q_act = LinearQNet(num_inputs=4, num_outputs=4, linear_layers=linear_layers, device=device)
         elif network_type == "conv":
             self.q_act = ConvQNet(num_outputs=4, device=device)
         self.q_eval = deepcopy(self.q_act)
@@ -125,3 +125,7 @@ class DQNAgent:
 
     def update_target(self):
         self.q_eval = deepcopy(self.q_act)
+
+    def save(self, dirname, checkpoint):
+        self.q_act.save(f"{dirname}/{checkpoint}/", "q_act.pt")
+        self.q_eval.save(f"{dirname}/{checkpoint}/", "q_eval.pt")

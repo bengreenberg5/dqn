@@ -18,27 +18,28 @@ from agent import DQNAgent
 from replay import ReplayBuffer, Experience
 
 
-def evaluate(
-    env,
-    agent,
-    epsilon,
-):
-    """
+ATARI_ENVS = ["Breakout"]
 
+
+def evaluate(env, agent, epsilon):
+    """
     :param env:
     :param agent:
     :param epsilon:
     :return:
     """
-    return 0.0  # TODO evaluate and save videos
-
-
-def make_policy():
-    """
-    TODO
-    :return:
-    """
-    pass
+    state = env.reset()
+    rewards = 0.0
+    done = False
+    while not done:
+        if np.random.random() < epsilon:
+            action = env.action_space.sample()
+        else:
+            with torch.no_grad():
+                action = agent.get_best_action(state, target=False)
+        state, reward, done, _ = env.step(action)
+        rewards += reward
+    return rewards
 
 
 def train(
@@ -55,7 +56,6 @@ def train(
     discount_factor=0.99,
     train_every=4,
     update_target_every=10_000,
-    save_every=50_000,
     eval_every=10_000,
     eval_epsilon=0.05,
     eval_episodes=10,
@@ -72,12 +72,8 @@ def train(
     :param epsilon_end:
     :param epsilon_decay_frames:
     :param replay_start_frame:
-    :param learning_rate:
-    :param momentum:
-    :param discount_factor:
     :param train_every:
     :param update_target_every:
-    :param save_every:
     :param eval_every:
     :param eval_epsilon:
     :param eval_episodes:
@@ -86,18 +82,9 @@ def train(
     :return:
     """
     env = gym.make(env_name)
-    agent = DQNAgent(...)  # TODO
-    replay_buffer = ReplayBuffer(exp_buffer_size)
-
-    if save_every > 0:
-        env = Monitor(
-            env,
-            f"{dirname}/videos",
-            video_callable=lambda ep: ep % save_every == 0,
-            force=True,
-        )
-        # video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env)
-    if env_name.startswith("Breakout"):
+    is_atari = np.any([env_name.startswith(atari_env) for atari_env in ATARI_ENVS])
+    if is_atari:
+        network_type = "conv"
         env = AtariPreprocessing(
             env,
             noop_max=30,
@@ -106,6 +93,10 @@ def train(
             terminal_on_life_loss=False,
             grayscale_obs=True,
         )
+    else:
+        network_type = "linear"
+    agent = DQNAgent(network_type=network_type, device=device)
+    replay_buffer = ReplayBuffer(exp_buffer_size)
 
     frame = 0
     pbar = tqdm(total=total_frames)
@@ -115,16 +106,18 @@ def train(
     print(f"{datetime.now().strftime('%H:%M:%S')} - started training on {device}")
 
     while frame < total_frames:
+
+        # set up episode
         if frame >= eval_at:
-            eval_env = env  # monitor_env if eval_at % render_every == 0 else env
-            rewards = [
-                evaluate(eval_env, agent, epsilon=eval_epsilon)
-                for _ in range(eval_episodes)
-            ]  # TODO evaluate
+            checkpoint = str(eval_at).zfill(8)
+            eval_env = Monitor(env, f"{dirname}/{checkpoint}/", force=True)
+            # video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env)
+            rewards = [evaluate(eval_env, agent, epsilon=eval_epsilon) for _ in range(eval_episodes)]
             print(f"step {eval_at}: mean reward = {sum(rewards) / len(rewards):.2f}")
             eval_at += eval_every
+            agent.save(dirname, checkpoint)
         if frame > update_target_at:
-            agent.reset_target()
+            agent.update_target()
             update_target_at += train_every * update_target_every
         state = torch.tensor(env.reset(), dtype=torch.float32)
         done = False
@@ -141,7 +134,7 @@ def train(
             if np.random.random() < epsilon:
                 action = env.action_space.sample()
             else:
-                action = agent.get_action(state)
+                action = agent.get_best_action(state, target=False)
             state_next, reward, done, _ = env.step(action)
             state_next = torch.tensor(state_next)
             replay_buffer.append(Experience(state, action, reward, state_next, done))
@@ -159,14 +152,14 @@ def train(
                 state_nexts = torch.cat([exp.state_next for exp in exps]).to(device)
                 dones = torch.tensor([exp.done for exp in exps]).to(device)
 
-                q_value_est = agent.q_value_estimate(states).gather(1, actions.unsqueeze(-1)).squeeze()
+                q_act_est = agent.est_values(states, actions, target=False)
+
                 best_actions = (
-                    agent.q_value_estimate(state_nexts).detach().argmax(dim=1)
+                    agent.get_best_action(state_nexts, target=True).detach()
                 )
-                q_target_est = dones * agent.q_target_estimate(state_nexts).detach().gather(
-                    1, best_actions.unsqueeze(-1)
-                ).squeeze()
-                loss = F.mse_loss(q_value_est, rewards + discount_factor * q_target_est)
+                q_eval_est = dones * agent.est_values(state, best_actions, target=False)
+
+                loss = F.mse_loss(q_act_est, rewards + discount_factor * q_eval_est)
                 loss.backward()
                 agent.apply_grad()
 
