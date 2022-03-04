@@ -16,24 +16,46 @@ from replay import ReplayBuffer, Experience
 ATARI_ENVS = ["Breakout"]
 
 
-def evaluate(env, agent, epsilon):
+def preprocess_env(env):
+    return AtariPreprocessing(
+        env,
+        noop_max=30,
+        frame_skip=4,
+        screen_size=84,
+        terminal_on_life_loss=False,
+        grayscale_obs=True,
+    )
+
+
+def evaluate(env_name, agent, is_atari, epsilon, path=None):
     """
     :param env:
     :param agent:
+    :param is_atari:
     :param epsilon:
+    :param path: Path to video (if None, disable recording)
     :return:
     """
-    state = env.reset()
+    env = gym.make(env_name)
+    if is_atari:
+        env = preprocess_env(env)
+    if path is not None:
+        recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env, enabled=True, path=path)
+    state = torch.tensor(env.reset(), dtype=torch.float32).unsqueeze(0).unsqueeze(0)
     rewards = 0.0
     done = False
     while not done:
+        if path is not None:
+            recorder.capture_frame()
         if np.random.random() < epsilon:
             action = env.action_space.sample()
         else:
-            with torch.no_grad():
-                action = agent.get_best_action(state, target=False)
+            action = agent.get_best_action(state, target=False).item()
         state, reward, done, _ = env.step(action)
+        state = torch.tensor(state, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
         rewards += reward
+    if path is not None:
+        recorder.close()
     return rewards
 
 
@@ -80,17 +102,13 @@ def train(
     is_atari = np.any([env_name.startswith(atari_env) for atari_env in ATARI_ENVS])
     if is_atari:
         network_type = "conv"
-        env = AtariPreprocessing(
-            env,
-            noop_max=30,
-            frame_skip=4,
-            screen_size=84,
-            terminal_on_life_loss=False,
-            grayscale_obs=True,
-        )
+        env = preprocess_env(env)
     else:
         network_type = "linear"
-    agent = DQNAgent(network_type=network_type, device=device)
+    num_inputs = len(env.reset())
+    agent = DQNAgent(
+        num_inputs=num_inputs, num_outputs=env.action_space.n, network_type=network_type, device=device
+    )
     replay_buffer = ReplayBuffer(exp_buffer_size)
 
     frame = 0
@@ -103,18 +121,7 @@ def train(
     while frame < total_frames:
 
         # set up episode
-        if frame >= eval_at:
-            checkpoint = str(eval_at).zfill(7)
-            eval_env = Monitor(env, f"{dirname}/{checkpoint}/", force=True)
-            # video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env)
-            rewards = [evaluate(eval_env, agent, epsilon=eval_epsilon) for _ in range(eval_episodes)]
-            print(f"step {eval_at}: mean reward = {sum(rewards) / len(rewards):.2f}")
-            eval_at += eval_every
-            agent.save(dirname, checkpoint)
-        if frame > update_target_at:
-            agent.update_target()
-            update_target_at += train_every * update_target_every
-        state = torch.tensor(env.reset(), dtype=torch.float32)
+        state = torch.tensor(env.reset(), dtype=torch.float32).unsqueeze(0).unsqueeze(0)
         done = False
         ep_reward = 0.0
         if frame >= replay_start_frame:
@@ -129,48 +136,69 @@ def train(
             if np.random.random() < epsilon:
                 action = env.action_space.sample()
             else:
-                action = agent.get_best_action(state, target=False)
+                action = agent.get_best_action(state, target=False).item()
             state_next, reward, done, _ = env.step(action)
-            state_next = torch.tensor(state_next)
+            state_next = torch.tensor(state_next, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
             replay_buffer.append(Experience(state, action, reward, state_next, done))
             ep_reward += reward
             state = state_next
             frame += 1
             pbar.update(1)
 
+            # evaluate Q-net
+            if frame >= eval_at:
+                checkpoint = str(eval_at).zfill(7)
+                checkpoint_dir = f"{dirname}/{checkpoint}/"
+                os.mkdir(checkpoint_dir)
+                rewards = [evaluate(
+                    env_name, agent, is_atari=is_atari, epsilon=eval_epsilon, path=f"{checkpoint_dir}/{env_name}_{i}.mp4"
+                ) for i in range(eval_episodes)]
+                print(f"step {eval_at}: mean reward = {sum(rewards) / len(rewards):.2f}")
+                eval_at += eval_every
+                agent.save(dirname, checkpoint)
+
+            # update evaluation Q-net
+            if frame > update_target_at:
+                agent.update_target()
+                update_target_at += train_every * update_target_every
+
             # train Q-net
             if frame % train_every == 0 and len(replay_buffer) >= minibatch_size:
                 exps = replay_buffer.sample_experience(minibatch_size)
-                states = torch.cat([exp.state for exp in exps]).to(device)
+                states = torch.cat([exp.state for exp in exps]).float().to(device)
                 actions = torch.tensor([exp.action for exp in exps]).to(device)
                 rewards = torch.tensor([exp.reward for exp in exps]).to(device)
-                state_nexts = torch.cat([exp.state_next for exp in exps]).to(device)
+                state_nexts = torch.cat([exp.state_next for exp in exps]).float().to(device)
                 dones = torch.tensor([exp.done for exp in exps]).to(device)
 
+                agent.zero_grad()
                 q_act_est = agent.est_values(states, actions, target=False)
 
-                best_actions = (
-                    agent.get_best_action(state_nexts, target=True).detach()
-                )
-                q_eval_est = dones * agent.est_values(state, best_actions, target=False)
+                with torch.no_grad():
+                    best_actions = (
+                        agent.get_best_action(state_nexts, target=True)
+                    )
+                    q_eval_est = dones.logical_not() * agent.est_values(state_nexts, best_actions, target=True)
 
                 loss = F.mse_loss(q_act_est, rewards + discount_factor * q_eval_est)
                 loss.backward()
                 agent.apply_grad()
 
-        ep_rewards += ep_reward
+        ep_rewards.append(ep_reward)
 
     pbar.close()
     return agent, ep_rewards
 
 
 def main():
-    time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    gin.parse_config_file("config.gin")
+
+    time = datetime.now().strftime("%m%d_%H%M%S")
     dirname = os.path.abspath(f"../runs/{time}/")
     if not os.path.exists(dirname):
         os.mkdir(dirname)
 
-    train()
+    train(dirname=dirname)
 
 if __name__ == "__main__":
     main()

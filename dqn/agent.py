@@ -21,11 +21,8 @@ class QNet(nn.Module):
     def get_best_action(self, state):
         return self.forward(state).argmax(dim=-1)
 
-    def est_values(self, states, actions, grad=True):
-        if grad:
-            return self.forward(states).gather(1, actions.unsqueeze(-1)).squeeze()
-        else:
-            return self.forward(states).detach().gather(1, actions.unsqueeze(-1)).squeeze()
+    def est_values(self, states, actions):
+        return self.forward(states).gather(1, actions.unsqueeze(-1)).squeeze()
 
     def save(self, dirname, fname):
         if not os.path.exists(dirname):
@@ -41,19 +38,19 @@ class QNet(nn.Module):
 class LinearQNet(QNet):
 
     def __init__(self, num_inputs, num_outputs, linear_layers=None, device="cpu"):
-        super().__init__(num_outputs, linear_layers, device)
         self.num_inputs = num_inputs
         if not linear_layers:
-            layers = [50, 50]
+            linear_layers = [50, 50]
         layer_list = [nn.Linear(num_inputs, linear_layers[0]), nn.ReLU()]
         for i in range(1, len(linear_layers)):
             layer_list.append(nn.Linear(linear_layers[i - 1], linear_layers[i]))
             layer_list.append(nn.ReLU())
-        layer_list.append(nn.Linear(linear_layers[-1], self.num_outputs))
-        self.layers = nn.Sequential(*layer_list).to(device)
+        layer_list.append(nn.Linear(linear_layers[-1], num_outputs))
+        layers = nn.Sequential(*layer_list).to(device)
+        super().__init__(num_outputs, layers, device)
 
     def forward(self, x):
-        super().forward(x)
+        return super().forward(x)
 
 
 class ConvQNet(QNet):
@@ -72,15 +69,17 @@ class ConvQNet(QNet):
         super().__init__(num_outputs, layers, device)
 
     def forward(self, x):
-        super().forward(x)
+        return super().forward(x)
 
 
+@gin.configurable
 class DQNAgent:
 
-    @gin.configurable
     def __init__(
         self,
         network_type="linear",
+        num_inputs=-1,
+        num_outputs=-1,
         learning_rate=1e-4,
         momentum=0.95,
         linear_layers=None,
@@ -99,9 +98,11 @@ class DQNAgent:
         self.device = device
 
         if network_type == "linear":
-            self.q_act = LinearQNet(num_inputs=4, num_outputs=4, linear_layers=linear_layers, device=device)
+            self.q_act = LinearQNet(
+                num_inputs=num_inputs, num_outputs=num_outputs, linear_layers=linear_layers, device=device
+            )
         elif network_type == "conv":
-            self.q_act = ConvQNet(num_outputs=4, device=device)
+            self.q_act = ConvQNet(num_outputs=num_outputs, device=device)
         self.q_eval = deepcopy(self.q_act)
         self.optimizer = torch.optim.RMSprop(
             self.q_act.parameters(), lr=learning_rate, momentum=momentum
