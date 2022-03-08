@@ -3,7 +3,7 @@ DQNAgent.momentum = 0.95
 DQNAgent.linear_layers = [50, 50]
 
 train.env_name = "BreakoutNoFrameskip-v0"
-train.total_frames = 1_000_000
+train.total_frames = 10_000_000
 train.minibatch_size = 32
 train.exp_buffer_size = 50_000
 train.epsilon_start = 1.0

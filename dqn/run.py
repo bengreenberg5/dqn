@@ -3,6 +3,7 @@ import gin
 import os
 import numpy as np
 from tqdm import tqdm
+import wandb
 
 import gym
 from gym.wrappers import Monitor, AtariPreprocessing
@@ -112,7 +113,7 @@ def train(
     replay_buffer = ReplayBuffer(exp_buffer_size)
 
     frame = 0
-    pbar = tqdm(total=total_frames)
+    progress_bar = tqdm(total=total_frames)
     ep_rewards = []
     eval_at = 0
     update_target_at = 0
@@ -143,7 +144,7 @@ def train(
             ep_reward += reward
             state = state_next
             frame += 1
-            pbar.update(1)
+            progress_bar.update(1)
 
             # evaluate Q-net
             if frame >= eval_at:
@@ -185,20 +186,44 @@ def train(
                 agent.apply_grad()
 
         ep_rewards.append(ep_reward)
+        if wandb.run:
+            wandb.log({"reward": np.mean(ep_rewards[-25:])})
 
-    pbar.close()
+    progress_bar.close()
     return agent, ep_rewards
+
+
+def gin_config_to_readable_dictionary(gin_config: dict):
+    """
+    Parses the gin configuration to a dictionary. Useful for logging to e.g. W&B
+    :param gin_config: the gin's config dictionary. Can be obtained by gin.config._OPERATIVE_CONFIG
+    :return: the parsed (mainly: cleaned) dictionary
+    """
+    data = {}
+    for key in gin_config.keys():
+        name = key[1].split(".")[1]
+        values = gin_config[key]
+        for k, v in values.items():
+            data[".".join([name, k])] = v
+    return data
 
 
 def main():
     gin.parse_config_file("config.gin")
+    config_dict = gin_config_to_readable_dictionary(gin.config._OPERATIVE_CONFIG)
 
     time = datetime.now().strftime("%m%d_%H%M%S")
     dirname = os.path.abspath(f"../runs/{time}/")
     if not os.path.exists(dirname):
         os.mkdir(dirname)
 
+    wandb.login()
+    wandb.init(project="dqn", entity="anchorwatt", config=config_dict)
+
     train(dirname=dirname)
+
+    if wandb.run:
+        wandb.finish()
 
 if __name__ == "__main__":
     main()
