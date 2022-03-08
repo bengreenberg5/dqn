@@ -213,12 +213,13 @@ def main():
     config_dict = gin_config_to_readable_dictionary(gin.config._OPERATIVE_CONFIG)
 
     time = datetime.now().strftime("%m%d_%H%M%S")
+    if not os.path.exists("../runs"):
+        os.mkdir("../runs")
     dirname = os.path.abspath(f"../runs/{time}/")
-    if not os.path.exists(dirname):
-        os.mkdir(dirname)
+    os.mkdir(dirname)
 
     wandb.login()
-    wandb.init(project="dqn", entity="anchorwatt", config=config_dict)
+    wandb.init(project="dqn", entity="anchorwatt", config=config_dict, dir=os.path.abspath(".."))
 
     train(dirname=dirname)
 
