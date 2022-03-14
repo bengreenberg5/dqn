@@ -28,6 +28,13 @@ def preprocess_env(env):
     )
 
 
+def batchify(state, add_channel_dim=False):
+    if not add_channel_dim:
+        return torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+    else:
+        return torch.tensor(state, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+
+
 def evaluate(env_name, agent, is_atari, epsilon, path=None):
     """
     :param env:
@@ -42,7 +49,7 @@ def evaluate(env_name, agent, is_atari, epsilon, path=None):
         env = preprocess_env(env)
     if path is not None:
         recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env, enabled=True, path=path)
-    state = torch.tensor(env.reset(), dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+    state = batchify(env.reset(), is_atari)
     rewards = 0.0
     done = False
     while not done:
@@ -53,7 +60,7 @@ def evaluate(env_name, agent, is_atari, epsilon, path=None):
         else:
             action = agent.get_best_action(state, target=False).item()
         state, reward, done, _ = env.step(action)
-        state = torch.tensor(state, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+        state = batchify(state, is_atari)
         rewards += reward
     if path is not None:
         recorder.close()
@@ -122,7 +129,7 @@ def train(
     while frame < total_frames:
 
         # set up episode
-        state = torch.tensor(env.reset(), dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+        state = batchify(env.reset(), is_atari)
         done = False
         ep_reward = 0.0
         if frame >= replay_start_frame:
@@ -139,7 +146,7 @@ def train(
             else:
                 action = agent.get_best_action(state, target=False).item()
             state_next, reward, done, _ = env.step(action)
-            state_next = torch.tensor(state_next, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+            state_next = batchify(state_next, is_atari)
             replay_buffer.append(Experience(state, action, reward, state_next, done))
             ep_reward += reward
             state = state_next
