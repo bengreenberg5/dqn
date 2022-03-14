@@ -2,6 +2,8 @@ from datetime import datetime
 import gin
 import os
 import numpy as np
+from pprint import pprint
+import six
 from tqdm import tqdm
 import wandb
 
@@ -29,42 +31,38 @@ def preprocess_env(env):
 
 
 def batchify(state, add_channel_dim=False):
-    if not add_channel_dim:
-        return torch.tensor(state, dtype=torch.float32).unsqueeze(0)
-    else:
+    if add_channel_dim:
         return torch.tensor(state, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+    else:
+        return torch.tensor(state, dtype=torch.float32).unsqueeze(0)
 
 
-def evaluate(env_name, agent, is_atari, epsilon, path=None):
-    """
-    :param env:
-    :param agent:
-    :param is_atari:
-    :param epsilon:
-    :param path: Path to video (if None, disable recording)
-    :return:
-    """
+def evaluate(env_name, agent, is_atari, epsilon, episodes=5, video_dir=None):
     env = gym.make(env_name)
     if is_atari:
         env = preprocess_env(env)
-    if path is not None:
-        recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env, enabled=True, path=path)
-    state = batchify(env.reset(), is_atari)
+    if video_dir is not None:
+        env = gym.wrappers.RecordVideo(
+            env,
+            episode_trigger=lambda _: True,
+            video_folder=f"{video_dir}/videos",
+            name_prefix=env_name.split("/")[-1],
+        )
     rewards = 0.0
-    done = False
-    while not done:
-        if path is not None:
-            recorder.capture_frame()
-        if np.random.random() < epsilon:
-            action = env.action_space.sample()
-        else:
-            action = agent.get_best_action(state, target=False).item()
-        state, reward, done, _ = env.step(action)
-        state = batchify(state, is_atari)
-        rewards += reward
-    if path is not None:
-        recorder.close()
-    return rewards
+    for ep in range(episodes):
+        state = batchify(env.reset(), is_atari)
+        done = False
+        while not done:
+            if np.random.random() < epsilon:
+                action = env.action_space.sample()
+            else:
+                action = agent.get_best_action(state, target=False).item()
+            state, reward, done, _ = env.step(action)
+            state = batchify(state, is_atari)
+            rewards += reward
+    if video_dir is not None:
+        env.close()
+    return rewards / episodes
 
 
 @gin.configurable
@@ -156,12 +154,10 @@ def train(
             # evaluate Q-net
             if frame >= eval_at:
                 checkpoint = str(eval_at).zfill(7)
-                checkpoint_dir = f"{dirname}/{checkpoint}/"
+                checkpoint_dir = f"{dirname}/{checkpoint}"
                 os.mkdir(checkpoint_dir)
-                rewards = [evaluate(
-                    env_name, agent, is_atari=is_atari, epsilon=eval_epsilon, path=f"{checkpoint_dir}/{env_name}_{i}.mp4"
-                ) for i in range(eval_episodes)]
-                print(f"step {eval_at}: mean reward = {sum(rewards) / len(rewards):.2f}")
+                mean_rewards = evaluate(env_name, agent, is_atari, epsilon, episodes=eval_episodes, video_dir=checkpoint_dir)
+                print(f"step {eval_at}: episode {len(ep_rewards)}, mean reward = {mean_rewards:.2f}")
                 eval_at += eval_every
                 agent.save(dirname, checkpoint)
 
@@ -194,7 +190,7 @@ def train(
 
         ep_rewards.append(ep_reward)
         if wandb.run:
-            wandb.log({"reward": np.mean(ep_rewards[-25:])})
+            wandb.log({"train_reward": ep_reward})
 
     progress_bar.close()
     return agent, ep_rewards
@@ -217,7 +213,8 @@ def gin_config_to_readable_dictionary(gin_config: dict):
 
 def main():
     gin.parse_config_file("config.gin")
-    config_dict = gin_config_to_readable_dictionary(gin.config._OPERATIVE_CONFIG)
+    config_dict = gin_config_to_readable_dictionary(gin.config._CONFIG)
+    pprint(config_dict)
 
     time = datetime.now().strftime("%m%d_%H%M%S")
     if not os.path.exists("../runs"):
@@ -226,7 +223,7 @@ def main():
     os.mkdir(dirname)
 
     wandb.login()
-    wandb.init(project="dqn", entity="anchorwatt", config=config_dict, dir=os.path.abspath(".."))
+    wandb.init(project="dqn", entity="anchorwatt", config=config_dict, monitor_gym=True, dir=os.path.abspath(".."))
 
     train(dirname=dirname)
 
