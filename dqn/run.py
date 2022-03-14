@@ -6,7 +6,7 @@ from tqdm import tqdm
 import wandb
 
 import gym
-from gym.wrappers import Monitor, AtariPreprocessing
+from gym.wrappers import AtariPreprocessing
 import torch
 import torch.nn.functional as F
 
