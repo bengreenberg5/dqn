@@ -57,7 +57,7 @@ class ConvQNet(QNet):
 
     def __init__(self, num_outputs, device="cpu"):
         layers = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=8, stride=4),
+            nn.Conv2d(4, 32, kernel_size=8, stride=4),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),

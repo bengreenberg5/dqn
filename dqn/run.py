@@ -82,6 +82,7 @@ def train(
     :param device:
     :return:
     """
+    assert torch.cuda.is_available() or device == "cpu"
     env = gym.make(env_name)
     is_atari = np.any([env_name.startswith(atari_env) for atari_env in ATARI_ENVS])
     if is_atari:
@@ -134,7 +135,7 @@ def train(
                 checkpoint = str(eval_at).zfill(7)
                 checkpoint_dir = f"{dirname}/{checkpoint}"
                 os.mkdir(checkpoint_dir)
-                mean_rewards = evaluate(env_name, agent, is_atari, epsilon, episodes=eval_episodes, video_dir=checkpoint_dir)
+                mean_rewards = evaluate(env_name, agent, is_atari, eval_epsilon, episodes=eval_episodes, video_dir=checkpoint_dir)
                 print(f"step {eval_at}: episode {len(ep_rewards)}, mean reward = {mean_rewards:.2f}")
                 eval_at += eval_every
                 agent.save(dirname, checkpoint)
@@ -149,7 +150,7 @@ def train(
                 exps = replay_buffer.sample_experience(minibatch_size)
                 states = torch.cat([exp.state for exp in exps]).float().to(device)
                 actions = torch.tensor([exp.action for exp in exps]).to(device)
-                rewards = torch.tensor([exp.reward for exp in exps]).to(device)
+                rewards = torch.tensor([exp.reward for exp in exps]).float().to(device)
                 state_nexts = torch.cat([exp.state_next for exp in exps]).float().to(device)
                 dones = torch.tensor([exp.done for exp in exps]).to(device)
 

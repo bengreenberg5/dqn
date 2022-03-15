@@ -18,7 +18,7 @@ def preprocess_env(env):
 
 
 def batchify(state, add_channel_dim=False):
-    batch_obs = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+    batch_obs = torch.tensor(np.array(state), dtype=torch.float32).unsqueeze(0)
     if add_channel_dim:
         batch_obs = einops.rearrange(batch_obs, "b i j c -> b c i j")  # batch, channel, row, column
     return batch_obs
