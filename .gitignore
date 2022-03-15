@@ -6,3 +6,4 @@ log/*
 runs/*
 tmp/*
 todo.txt
+wandb/

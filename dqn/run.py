@@ -190,7 +190,9 @@ def train(
 
         ep_rewards.append(ep_reward)
         if wandb.run:
-            wandb.log({"train_reward": ep_reward})
+            recent_ep_rewards = ep_rewards[-25:]
+            wandb.log({"training episode reward": sum(recent_ep_rewards) / len(recent_ep_rewards)})
+            wandb.log({"epsilon": epsilon})
 
     progress_bar.close()
     return agent, ep_rewards
