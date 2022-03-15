@@ -1,4 +1,5 @@
 ale-py
+atari-py
 black
 einops
 gin-config
