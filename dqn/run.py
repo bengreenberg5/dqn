@@ -1,40 +1,18 @@
 from datetime import datetime
 import gin
 import os
-import numpy as np
 from pprint import pprint
-import six
+import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 import wandb
 
-import gym
-from gym.wrappers import AtariPreprocessing
-import torch
-import torch.nn.functional as F
-
 from agent import DQNAgent
 from replay import ReplayBuffer, Experience
+from utils import *
 
 
 ATARI_ENVS = ["Breakout"]
-
-
-def preprocess_env(env):
-    return AtariPreprocessing(
-        env,
-        noop_max=30,
-        frame_skip=4,
-        screen_size=84,
-        terminal_on_life_loss=False,
-        grayscale_obs=True,
-    )
-
-
-def batchify(state, add_channel_dim=False):
-    if add_channel_dim:
-        return torch.tensor(state, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
-    else:
-        return torch.tensor(state, dtype=torch.float32).unsqueeze(0)
 
 
 def evaluate(env_name, agent, is_atari, epsilon, episodes=5, video_dir=None):
