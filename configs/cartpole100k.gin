@@ -1,0 +1,20 @@
+DQNAgent.learning_rate = 1e-4
+DQNAgent.momentum = 0.95
+DQNAgent.linear_layers = [50, 50]
+
+train.env_name = "CartPole-v1"
+train.total_frames = 100_000
+train.minibatch_size = 32
+train.exp_buffer_size = 50_000
+train.epsilon_start = 1.0
+train.epsilon_end = 0.01
+train.epsilon_decay_frames = 50_000
+train.replay_start_frame = 5_000
+train.discount_factor = 0.99
+train.train_every = 4
+train.update_target_every = 100
+train.eval_every = 10_000
+train.eval_epsilon = 0.05
+train.eval_episodes = 5
+train.dirname = "runs/"
+train.device = "cpu"

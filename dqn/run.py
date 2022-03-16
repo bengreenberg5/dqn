@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime
 import gin
 import os
@@ -193,7 +194,9 @@ def gin_config_to_readable_dictionary(gin_config: dict):
 
 
 def main():
-    gin.parse_config_file("config.gin")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", dest=config_name)
+    gin.parse_config_file(os.path.abspath("../configs/{config_name}.gin"))
     config_dict = gin_config_to_readable_dictionary(gin.config._CONFIG)
     pprint(config_dict)
 
