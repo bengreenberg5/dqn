@@ -195,8 +195,9 @@ def gin_config_to_readable_dictionary(gin_config: dict):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", dest=config_name)
-    gin.parse_config_file(os.path.abspath("../configs/{config_name}.gin"))
+    parser.add_argument("--config", help="name of .gin file with (hyper)parameters")
+    args = parser.parse_args()
+    gin.parse_config_file(os.path.abspath(f"../configs/{args.config}.gin"))
     config_dict = gin_config_to_readable_dictionary(gin.config._CONFIG)
     pprint(config_dict)
 

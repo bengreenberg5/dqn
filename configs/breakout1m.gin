@@ -1,6 +1,6 @@
-DQNAgent.learning_rate = 1e-4
+DQNAgent.learning_rate = 1e-5
 DQNAgent.momentum = 0.95
-DQNAgent.linear_layers = [50, 50]
+DQNAgent.linear_layers = None
 
 train.env_name = "BreakoutNoFrameskip-v4"
 train.total_frames = 1_000_000
