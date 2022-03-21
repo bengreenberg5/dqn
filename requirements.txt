@@ -1,5 +1,5 @@
 ale-py
-atari-py
+atari-py==0.2.6
 black
 einops
 gin-config
