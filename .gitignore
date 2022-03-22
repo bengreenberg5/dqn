@@ -1,4 +1,5 @@
 .idea
+*.ipynb
 *.ipynb_checkpoints
 *.py[cod]
 *.sw[op]

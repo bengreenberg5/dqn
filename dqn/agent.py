@@ -27,12 +27,11 @@ class QNet(nn.Module):
     def save(self, dirname, fname):
         if not os.path.exists(dirname):
             os.mkdir(dirname)
-        torch.save(self.state_dict(), f"{dirname}/{fname}.pt")
+        torch.save(self.state_dict(), f"{dirname}/{fname}")
 
-    def load(self, dirname, fname, checkpoint):
+    def load(self, dirname, fname):
         assert os.path.exists(dirname), f"directory {dirname} does not exist"
-        checkpoint = str(checkpoint).zfill(7)
-        self.load_state_dict(torch.load(f"{dirname}/{checkpoint}/{fname}"))
+        self.load_state_dict(torch.load(f"{dirname}/{fname}"))
 
 
 class LinearQNet(QNet):

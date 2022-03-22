@@ -8,9 +8,10 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import wandb
 
-from agent import DQNAgent
-from replay import ReplayBuffer, Experience
-from utils import *
+from dqn import *
+# from agent import DQNAgent
+# from replay import ReplayBuffer, Experience
+# from utils import *
 
 
 ATARI_ENVS = ["Breakout"]
@@ -124,8 +125,8 @@ def train(
             else:
                 action = agent.get_best_action(state, target=False).item()
             state_next, reward, done, _ = env.step(action)
-            state_next = batchify(state_next, is_atari)
-            replay_buffer.append(Experience(state, action, reward, state_next, done))
+            state_next = batchify(state_next, add_channel_dim=is_atari)
+            replay_buffer.append(Experience(state, action, reward, state_next, done), cast_to_int=True)
             ep_reward += reward
             state = state_next
             frame += 1
@@ -163,8 +164,9 @@ def train(
                         agent.get_best_action(state_nexts, target=True)
                     )
                     q_eval_est = dones.logical_not() * agent.est_values(state_nexts, best_actions, target=True)
+                    q_eval_est = rewards + discount_factor * q_eval_est
 
-                loss = F.mse_loss(q_act_est, rewards + discount_factor * q_eval_est)
+                loss = F.mse_loss(q_act_est, q_eval_est)
                 loss.backward()
                 agent.apply_grad()
 

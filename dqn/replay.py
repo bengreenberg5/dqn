@@ -1,5 +1,6 @@
-from collections import deque, namedtuple
+from collections import namedtuple
 import random
+import torch
 
 
 Experience = namedtuple(
@@ -21,7 +22,9 @@ class ReplayBuffer:
     def __len__(self):
         return self.size
 
-    def append(self, exp):
+    def append(self, exp, cast_to_int=False):
+        if cast_to_int:
+            exp = Experience(exp.state.byte(), exp.action, exp.reward, exp.state_next.byte(), exp.done)
         self.experience[self.position] = exp
         self.size = min(self.size + 1, self.capacity)
         self.position = (self.position + 1) % self.capacity
