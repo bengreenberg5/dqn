@@ -1,6 +1,8 @@
 import argparse
 from datetime import datetime
 import gin
+import gym
+import numpy as np
 import os
 from pprint import pprint
 import torch
@@ -8,10 +10,9 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import wandb
 
-from . import *
-# from agent import DQNAgent
-# from replay import ReplayBuffer, Experience
-# from utils import *
+from agent import DQNAgent
+from replay import ReplayBuffer, Experience
+from utils import *
 
 
 ATARI_ENVS = ["Breakout"]
