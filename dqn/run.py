@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import wandb
 
-from dqn import *
+from . import *
 # from agent import DQNAgent
 # from replay import ReplayBuffer, Experience
 # from utils import *
