@@ -1,8 +1,9 @@
-apt-get install git wget cmake python3-opencv -y
+apt-get update
+apt-get install git wget cmake python3-opencv
 git clone https://github.com/bengreenberg5/dqn
 
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-sh Miniconda3-latest-Linux-x86_64.sh
+sh Miniconda3-latest-Linux-x86_64.sh -y
 source ~/.bashrc
 conda create --name rl python=3.9 -y
 conda activate rl

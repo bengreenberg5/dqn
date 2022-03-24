@@ -63,7 +63,8 @@ class ConvQNet(QNet):
             nn.Conv2d(64, 64, kernel_size=3, stride=1),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3136, num_outputs)
+            nn.Linear(3136, 512),
+            nn.Linear(512, num_outputs),
         ).to(device)
         super().__init__(num_outputs, layers, device)
 
