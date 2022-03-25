@@ -136,3 +136,6 @@ class DQNAgent:
     def save(self, dirname, checkpoint):
         self.q_act.save(f"{dirname}/{checkpoint}/", "q_act.pt")
         # self.q_eval.save(f"{dirname}/{checkpoint}/", "q_eval.pt")
+
+    def load(self, dirname, checkpoint):
+        self.q_act.load(f"{dirname}/{checkpoint}", "q_act.pt")

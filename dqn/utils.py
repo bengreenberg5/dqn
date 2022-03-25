@@ -6,10 +6,11 @@ from stable_baselines3.common.atari_wrappers import NoopResetEnv, FireResetEnv, 
 import torch
 
 
-def preprocess_env(env):
+def preprocess_env(env, episodic_life=True):
     env = NoopResetEnv(env, noop_max=30)
     env = FireResetEnv(env)
-    env = EpisodicLifeEnv(env)
+    if episodic_life:
+        env = EpisodicLifeEnv(env)
     env = MaxAndSkipEnv(env, skip=4)
     env = ClipRewardEnv(env)
     env = WarpFrame(env)
