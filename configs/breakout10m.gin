@@ -1,4 +1,4 @@
-DQNAgent.learning_rate = 3e-5
+DQNAgent.learning_rate = 1e-5
 DQNAgent.momentum = 0.95
 DQNAgent.linear_layers = None
 

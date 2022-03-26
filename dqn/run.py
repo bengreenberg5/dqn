@@ -173,7 +173,7 @@ def train(
 
         ep_rewards.append(ep_reward)
         if wandb.run:
-            recent_ep_rewards = ep_rewards[-25:]
+            recent_ep_rewards = ep_rewards[-100:]
             wandb.log({"training episode reward": sum(recent_ep_rewards) / len(recent_ep_rewards)})
             wandb.log({"epsilon": epsilon})
 

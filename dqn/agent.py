@@ -104,12 +104,10 @@ class DQNAgent:
         elif network_type == "conv":
             self.q_act = ConvQNet(num_outputs=num_outputs, device=device)
         self.q_eval = deepcopy(self.q_act)
-        self.optimizer = torch.optim.RMSprop(
+        self.optimizer = torch.optim.Adam(
             self.q_act.parameters(),
             lr=learning_rate,
-            momentum=momentum,
-            alpha=0.95,
-            eps=1e-2,
+            eps=1.5e-4,
         )
 
     def zero_grad(self):
