@@ -38,7 +38,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     run_dir = f"runs/{args.run}"
 
-    env_name = "BreakoutNoFrameskip-v4"
+    env_name = "BreakoutDeterministic-v4"
     env = preprocess_env(gym.make(env_name), episodic_life=False)
     agent = DQNAgent(
         network_type="conv",
@@ -47,6 +47,8 @@ if __name__ == "__main__":
         device="cpu",
     )
     checkpoints = sorted(os.listdir(run_dir))
+    out = ""
+    out_file = open("video_rewards.txt", "w")
     for checkpoint in os.listdir(run_dir):
         agent.load(run_dir, checkpoint)
         ep_rewards = evaluate(
@@ -56,4 +58,12 @@ if __name__ == "__main__":
             epsilon=0.05,
             episodes=5,
         )
-        print(f"\n\n{run_dir}/{checkpoint}: {ep_rewards}\n\n")
+        reward_str = f"{run_dir}/{checkpoint}: {ep_rewards}\n"
+        print(reward_str)
+        out += reward_str
+    out_file.write(out)
+    out_file.close()
+
+
+
+

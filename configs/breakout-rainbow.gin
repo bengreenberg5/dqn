@@ -15,6 +15,6 @@ train.train_every = 4
 train.update_target_every = 8_000
 train.eval_every = 500_000
 train.eval_epsilon = 0.001
-train.eval_episodes = 50
+train.eval_episodes = 5
 train.dirname = "runs/"
 train.device = "cuda"
