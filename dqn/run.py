@@ -15,7 +15,7 @@ from replay import ReplayBuffer, Experience
 from utils import *
 
 
-ATARI_ENVS = ["Breakout"]
+ATARI_ENVS = ["Breakout", "Pong", "SpaceInvaders", "StarGunner"]
 
 
 def evaluate(env_name, agent, is_atari, epsilon, episodes=5, video_dir=None):
@@ -199,6 +199,7 @@ def gin_config_to_readable_dictionary(gin_config: dict):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="name of .gin file with (hyper)parameters")
+    parser.add_argument("--env", help="name of environment")
     args = parser.parse_args()
     gin.parse_config_file(os.path.abspath(f"../configs/{args.config}.gin"))
     config_dict = gin_config_to_readable_dictionary(gin.config._CONFIG)
@@ -213,7 +214,7 @@ def main():
     wandb.login()
     wandb.init(project="dqn", entity="anchorwatt", config=config_dict, monitor_gym=True, dir=os.path.abspath(".."))
 
-    train(dirname=dirname)
+    train(env_name=args.env_name, dirname=dirname)
 
     if wandb.run:
         wandb.finish()

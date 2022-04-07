@@ -35,10 +35,11 @@ def evaluate(env, run_dir, checkpoint, epsilon, episodes=5):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--run", help="directory containing checkpoint files")
+    parser.add_argument("--env", help="name of gym env")
     args = parser.parse_args()
     run_dir = f"runs/{args.run}"
 
-    env_name = "BreakoutDeterministic-v4"
+    env_name = args.env
     env = preprocess_env(gym.make(env_name), episodic_life=False)
     agent = DQNAgent(
         network_type="conv",
@@ -48,7 +49,7 @@ if __name__ == "__main__":
     )
     checkpoints = sorted(os.listdir(run_dir))
     out = ""
-    out_file = open("video_rewards.txt", "w")
+    out_file = open(f"{run_dir}/{env_name}_video_rewards.txt", "w")
     for checkpoint in os.listdir(run_dir):
         agent.load(run_dir, checkpoint)
         ep_rewards = evaluate(
@@ -56,7 +57,7 @@ if __name__ == "__main__":
             run_dir,
             checkpoint,
             epsilon=0.05,
-            episodes=5,
+            episodes=10,
         )
         reward_str = f"{run_dir}/{checkpoint}: {ep_rewards}\n"
         print(reward_str)

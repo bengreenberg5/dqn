@@ -2,7 +2,6 @@ DQNAgent.learning_rate = 1e-4
 DQNAgent.momentum = 0.95
 DQNAgent.linear_layers = [50, 50]
 
-train.env_name = "CartPole-v1"
 train.total_frames = 100_000
 train.minibatch_size = 32
 train.exp_buffer_size = 50_000
