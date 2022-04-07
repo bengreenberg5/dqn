@@ -45,9 +45,9 @@ if __name__ == "__main__":
     env_name = args.env
     env = preprocess_env(gym.make(env_name), episodic_life=False)
     agent = DQNAgent(
-        network_type="conv",
+        network_type="conv",  # TODO fix
         num_inputs=4,
-        num_outputs=4,
+        num_outputs=env.action_space.n,
         device="cpu",
     )
     checkpoints = sorted(os.listdir(run_dir))
