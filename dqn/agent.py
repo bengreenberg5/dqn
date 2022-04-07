@@ -6,6 +6,9 @@ import torch.nn as nn
 
 
 class QNet(nn.Module):
+    """
+    Base class for q-network. A DQNAgent has an `action` and an `evaluation` q-net.
+    """
 
     def __init__(self, num_outputs, layers, device):
         super().__init__()
@@ -74,6 +77,12 @@ class ConvQNet(QNet):
 
 @gin.configurable
 class DQNAgent:
+    """
+    Agent class.
+    Select and evaluate actions based on the network output.
+    Update gradient based on MSE loss.
+    Save to/load from file.
+    """
 
     def __init__(
         self,
@@ -90,7 +99,7 @@ class DQNAgent:
         :param learning_rate:
         :param momentum:
         :param linear_layers: Sizes of linear layers; ignored for conv net
-        :param device:
+        :param device: "cpu" or "cuda"
         """
         assert network_type in ("linear", "conv"), f"unknown network type `{network_type}`"
 
@@ -108,7 +117,7 @@ class DQNAgent:
             self.q_act.parameters(),
             lr=learning_rate,
             eps=1.5e-4,
-        )
+
 
     def zero_grad(self):
         self.optimizer.zero_grad()

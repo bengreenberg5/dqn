@@ -19,6 +19,15 @@ ATARI_ENVS = ["Breakout", "Pong", "SpaceInvaders", "StarGunner"]
 
 
 def evaluate(env_name, agent, is_atari, epsilon, episodes=5, video_dir=None):
+    """
+    Evaluate an agent in a gym environment.
+    :param env_name: name of environment
+    :param agent: agent with two q-nets
+    :param is_atari: whether or not this env requires atari preprocessing
+    :param epiodes: how many trials to evaluate
+    :param video_dir: where to store videos (default: don't record)
+    :return: mean of episode rewards
+    """
     env = gym.make(env_name)
     if is_atari:
         env = preprocess_env(env)
@@ -66,24 +75,24 @@ def train(
     device="cpu",
 ):
     """
-    TODO
-    :param env_name:
-    :param total_frames:
-    :param minibatch_size:
-    :param exp_buffer_size:
-    :param epsilon_start:
-    :param epsilon_end:
-    :param epsilon_decay_frames:
-    :param replay_start_frame:
-    :param discount_factor:
-    :param train_every:
-    :param update_target_every:
-    :param eval_every:
-    :param eval_epsilon:
-    :param eval_episodes:
-    :param dirname:
-    :param device:
-    :return:
+    Create and train a DQN agent.
+    :param env_name: name of gym environment
+    :param total_frames: how many frames to train for
+    :param minibatch_size: how many experiences to sample
+    :param exp_buffer_size:  how many experiences to store
+    :param epsilon_start: exploration rate at beginning 
+    :param epsilon_end: exploration rate at end
+    :param epsilon_decay_frames: how many frames to decay epsilon over
+    :param replay_start_frame: how many frames to take random actions
+    :param discount_factor: "gamma"
+    :param train_every: how many frames in between sampling experiences
+    :param update_target_every: how many gradient updates in between target network reset
+    :param eval_every: how many frames in bewteen evaluations
+    :param eval_epsilon: exploration rate for evaluation
+    :param eval_episodes: how many episodes to evaluate
+    :param dirname: where to store agent checkpoint + eval videos
+    :param device: "cpu" or "cuda"
+    :return: the trained agent and an array of training rewards
     """
     assert torch.cuda.is_available() or device == "cpu"
     env = gym.make(env_name)
@@ -183,9 +192,9 @@ def train(
 
 def gin_config_to_readable_dictionary(gin_config: dict):
     """
-    Parses the gin configuration to a dictionary. Useful for logging to e.g. W&B
-    :param gin_config: the gin's config dictionary. Can be obtained by gin.config._OPERATIVE_CONFIG
-    :return: the parsed (mainly: cleaned) dictionary
+    Parse the gin configuration to a dictionary.
+    :param gin_config: the gin's config dictionary; gin.config._OPERATIVE_CONFIG
+    :return: the parsed dictionary
     """
     data = {}
     for key in gin_config.keys():
