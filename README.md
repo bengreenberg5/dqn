@@ -9,7 +9,7 @@ apt-get update
 apt-get install git wget cmake python3-opencv
 ```
 
-Create a virtual environment, then:
+Create a virtual environment and install requirements:
 
 ```
 cd dqn
@@ -18,17 +18,21 @@ pip install -r requirements.txt
 
 ## Training
 
-Choose a gym environment and config file, then run:
+Run:
 
 ```
 cd dqn
 python run.py --env BreakoutNoFrameskip-v4 --config rainbow
 ```
 
+where `env` is a gym environment name, and `config` is the name of a file in the "configs" directory (minus the .gin extension).
+
 ## Evaluation
 
-Choose a folder containing agent checkpoints, then run:
+Run:
 
 ```
-python generate_video.py -- env BreakoutNoFrameskip-v4 --run gcp-breakout
+python generate_video.py --env BreakoutNoFrameskip-v4 --run gcp-breakout
 ```
+
+where `run` is the name of a directory with agent checkpoints.
