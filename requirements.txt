@@ -11,6 +11,6 @@ pygame
 pyglet==1.5.22
 six
 stable-baselines3
-torch==1.10.2
+torch
 tqdm
 wandb
