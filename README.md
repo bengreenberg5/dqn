@@ -1,4 +1,4 @@
-PyTorch implementations of [DQN](http://web.stanford.edu/class/psych209/Readings/MnihEtAlHassibis15NatureControlDeepRL.pdf).
+PyTorch implementation of [DQN](http://web.stanford.edu/class/psych209/Readings/MnihEtAlHassibis15NatureControlDeepRL.pdf).
 
 ## Setup
 
