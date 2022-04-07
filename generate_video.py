@@ -7,6 +7,9 @@ from dqn.utils import batchify, preprocess_env
 
 
 def evaluate(env, run_dir, checkpoint, epsilon, episodes=5):
+    """
+    Evaluate agent from checkpoint; print rewards and save videos.
+    """
     assert os.path.exists(run_dir), f"can't find {run_dir}"
     env = gym.wrappers.RecordVideo(
         env,
