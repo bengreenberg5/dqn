@@ -214,7 +214,7 @@ def main():
     wandb.login()
     wandb.init(project="dqn", entity="anchorwatt", config=config_dict, monitor_gym=True, dir=os.path.abspath(".."))
 
-    train(env_name=args.env_name, dirname=dirname)
+    train(env_name=args.env, dirname=dirname)
 
     if wandb.run:
         wandb.finish()
