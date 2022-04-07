@@ -117,6 +117,7 @@ class DQNAgent:
             self.q_act.parameters(),
             lr=learning_rate,
             eps=1.5e-4,
+        )
 
 
     def zero_grad(self):
