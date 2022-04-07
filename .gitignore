@@ -5,7 +5,7 @@
 *.sw[op]
 log/*
 runs/*
-setup.sh
+*.sh
 tmp/*
 todo.txt
 wandb/
