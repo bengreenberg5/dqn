@@ -3,7 +3,7 @@ atari-py==0.2.6
 black
 einops
 gin-config
-gym[atari]==0.23.0
+gym[atari,accept-rom-license]==0.23.0
 numpy
 opencv-python==4.5.5.62
 pandas

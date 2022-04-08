@@ -6,7 +6,7 @@ Run the following commands:
 
 ```
 apt-get update
-apt-get install git wget cmake python3-opencv
+apt-get install git wget cmake python3-opencv ffmpeg -y
 ```
 
 Create a virtual environment and install requirements:
