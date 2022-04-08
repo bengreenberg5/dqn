@@ -53,8 +53,7 @@ if __name__ == "__main__":
         device="cpu",
     )
     checkpoints = sorted(os.listdir(run_dir))
-    out = ""
-    out_file = open(f"{run_dir}/{env_name}_video_rewards.txt", "w")
+    out_file = open(f"{run_dir}/{env_name}_video_rewards.txt", "a")
     checkpoints = [dir for dir in os.listdir(run_dir) if dir[0].isdigit()]
     for checkpoint in checkpoints:
         agent.load(run_dir, checkpoint)
@@ -68,7 +67,5 @@ if __name__ == "__main__":
             episodes=10,
         )
         reward_str = f"{run_dir}/{checkpoint}: {ep_rewards}\n"
-        print(reward_str)
-        out += reward_str
-    out_file.write(out)
+        out_file.write(reward_str)
     out_file.close()
