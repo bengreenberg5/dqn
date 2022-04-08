@@ -15,9 +15,6 @@ from replay import ReplayBuffer, Experience
 from utils import *
 
 
-ATARI_ENVS = ["Breakout", "Pong", "SpaceInvaders", "StarGunner"]
-
-
 def evaluate(env_name, agent, is_atari, epsilon, episodes=5, video_dir=None):
     """
     Evaluate an agent in a gym environment.
@@ -80,7 +77,7 @@ def train(
     :param total_frames: how many frames to train for
     :param minibatch_size: how many experiences to sample
     :param exp_buffer_size:  how many experiences to store
-    :param epsilon_start: exploration rate at beginning 
+    :param epsilon_start: exploration rate at beginning
     :param epsilon_end: exploration rate at end
     :param epsilon_decay_frames: how many frames to decay epsilon over
     :param replay_start_frame: how many frames to take random actions
@@ -104,7 +101,10 @@ def train(
         network_type = "linear"
     num_inputs = len(env.reset())
     agent = DQNAgent(
-        num_inputs=num_inputs, num_outputs=env.action_space.n, network_type=network_type, device=device
+        num_inputs=num_inputs,
+        num_outputs=env.action_space.n,
+        network_type=network_type,
+        device=device,
     )
     replay_buffer = ReplayBuffer(exp_buffer_size)
 
@@ -136,7 +136,9 @@ def train(
                 action = agent.get_best_action(state, target=False).item()
             state_next, reward, done, _ = env.step(action)
             state_next = batchify(state_next, add_channel_dim=is_atari)
-            replay_buffer.append(Experience(state, action, reward, state_next, done), cast_to_int=True)
+            replay_buffer.append(
+                Experience(state, action, reward, state_next, done), cast_to_int=True
+            )
             ep_reward += reward
             state = state_next
             frame += 1
@@ -144,11 +146,20 @@ def train(
 
             # evaluate Q-net
             if frame >= eval_at:
-                checkpoint = str(eval_at).zfill(7)
+                checkpoint = str(eval_at).zfill(8)
                 checkpoint_dir = f"{dirname}/{checkpoint}"
                 os.mkdir(checkpoint_dir)
-                mean_rewards = evaluate(env_name, agent, is_atari, eval_epsilon, episodes=eval_episodes, video_dir=checkpoint_dir)
-                print(f"step {eval_at}: episode {len(ep_rewards)}, mean reward = {mean_rewards:.2f}")
+                mean_rewards = evaluate(
+                    env_name,
+                    agent,
+                    is_atari,
+                    eval_epsilon,
+                    episodes=eval_episodes,
+                    video_dir=checkpoint_dir,
+                )
+                print(
+                    f"step {eval_at}: episode {len(ep_rewards)}, mean reward = {mean_rewards:.2f}"
+                )
                 eval_at += eval_every
                 agent.save(dirname, checkpoint)
 
@@ -163,17 +174,19 @@ def train(
                 states = torch.cat([exp.state for exp in exps]).float().to(device)
                 actions = torch.tensor([exp.action for exp in exps]).to(device)
                 rewards = torch.tensor([exp.reward for exp in exps]).float().to(device)
-                state_nexts = torch.cat([exp.state_next for exp in exps]).float().to(device)
+                state_nexts = (
+                    torch.cat([exp.state_next for exp in exps]).float().to(device)
+                )
                 dones = torch.tensor([exp.done for exp in exps]).to(device)
 
                 agent.zero_grad()
                 q_act_est = agent.est_values(states, actions, target=False)
 
                 with torch.no_grad():
-                    best_actions = (
-                        agent.get_best_action(state_nexts, target=True)
+                    best_actions = agent.get_best_action(state_nexts, target=True)
+                    q_eval_est = dones.logical_not() * agent.est_values(
+                        state_nexts, best_actions, target=True
                     )
-                    q_eval_est = dones.logical_not() * agent.est_values(state_nexts, best_actions, target=True)
                     q_eval_est = rewards + discount_factor * q_eval_est
 
                 loss = F.mse_loss(q_act_est, q_eval_est)
@@ -183,7 +196,12 @@ def train(
         ep_rewards.append(ep_reward)
         if wandb.run:
             recent_ep_rewards = ep_rewards[-100:]
-            wandb.log({"training episode reward": sum(recent_ep_rewards) / len(recent_ep_rewards)})
+            wandb.log(
+                {
+                    "training episode reward": sum(recent_ep_rewards)
+                    / len(recent_ep_rewards)
+                }
+            )
             wandb.log({"epsilon": epsilon})
 
     progress_bar.close()
@@ -221,12 +239,19 @@ def main():
     os.mkdir(dirname)
 
     wandb.login()
-    wandb.init(project="dqn", entity="anchorwatt", config=config_dict, monitor_gym=True, dir=os.path.abspath(".."))
+    wandb.init(
+        project="dqn",
+        entity="anchorwatt",
+        config=config_dict,
+        monitor_gym=True,
+        dir=os.path.abspath(".."),
+    )
 
     train(env_name=args.env, dirname=dirname)
 
     if wandb.run:
         wandb.finish()
+
 
 if __name__ == "__main__":
     main()

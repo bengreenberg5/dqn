@@ -2,8 +2,18 @@ from collections import deque
 import einops
 import gym
 import numpy as np
-from stable_baselines3.common.atari_wrappers import NoopResetEnv, FireResetEnv, EpisodicLifeEnv, MaxAndSkipEnv, ClipRewardEnv, WarpFrame
+from stable_baselines3.common.atari_wrappers import (
+    NoopResetEnv,
+    FireResetEnv,
+    EpisodicLifeEnv,
+    MaxAndSkipEnv,
+    ClipRewardEnv,
+    WarpFrame,
+)
 import torch
+
+
+ATARI_ENVS = ["Breakout", "Pong", "SpaceInvaders", "StarGunner"]
 
 
 def preprocess_env(env, episodic_life=True):
@@ -21,7 +31,9 @@ def preprocess_env(env, episodic_life=True):
 def batchify(state, add_channel_dim=False):
     batch_obs = torch.tensor(np.array(state), dtype=torch.float32).unsqueeze(0)
     if add_channel_dim:
-        batch_obs = einops.rearrange(batch_obs, "b i j c -> b c i j")  # batch, channel, row, column
+        batch_obs = einops.rearrange(
+            batch_obs, "b i j c -> b c i j"
+        )  # batch, channel, row, column
     return batch_obs
 
 
@@ -39,8 +51,12 @@ class FrameStack(gym.Wrapper):
         self.n_frames = n_frames
         self.frames = deque([], maxlen=n_frames)
         shp = env.observation_space.shape
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(shp[0], shp[1], shp[2] * n_frames),
-                                            dtype=env.observation_space.dtype)
+        self.observation_space = gym.spaces.Box(
+            low=0,
+            high=255,
+            shape=(shp[0], shp[1], shp[2] * n_frames),
+            dtype=env.observation_space.dtype,
+        )
 
     def reset(self, **kwargs):
         obs = self.env.reset(**kwargs)
@@ -61,7 +77,9 @@ class FrameStack(gym.Wrapper):
 class ScaledFloatFrame(gym.ObservationWrapper):
     def __init__(self, env):
         gym.ObservationWrapper.__init__(self, env)
-        self.observation_space = gym.spaces.Box(low=0, high=1.0, shape=env.observation_space.shape, dtype=np.float32)
+        self.observation_space = gym.spaces.Box(
+            low=0, high=1.0, shape=env.observation_space.shape, dtype=np.float32
+        )
 
     def observation(self, observation):
         # careful! This undoes the memory optimization, use

@@ -38,7 +38,6 @@ class QNet(nn.Module):
 
 
 class LinearQNet(QNet):
-
     def __init__(self, num_inputs, num_outputs, linear_layers=None, device="cpu"):
         self.num_inputs = num_inputs
         if not linear_layers:
@@ -56,7 +55,6 @@ class LinearQNet(QNet):
 
 
 class ConvQNet(QNet):
-
     def __init__(self, num_outputs, device="cpu"):
         layers = nn.Sequential(
             nn.Conv2d(4, 32, kernel_size=8, stride=4),
@@ -101,14 +99,20 @@ class DQNAgent:
         :param linear_layers: Sizes of linear layers; ignored for conv net
         :param device: "cpu" or "cuda"
         """
-        assert network_type in ("linear", "conv"), f"unknown network type `{network_type}`"
+        assert network_type in (
+            "linear",
+            "conv",
+        ), f"unknown network type `{network_type}`"
 
         self.network_type = network_type
         self.device = device
 
         if network_type == "linear":
             self.q_act = LinearQNet(
-                num_inputs=num_inputs, num_outputs=num_outputs, linear_layers=linear_layers, device=device
+                num_inputs=num_inputs,
+                num_outputs=num_outputs,
+                linear_layers=linear_layers,
+                device=device,
             )
         elif network_type == "conv":
             self.q_act = ConvQNet(num_outputs=num_outputs, device=device)
@@ -118,7 +122,6 @@ class DQNAgent:
             lr=learning_rate,
             eps=1.5e-4,
         )
-
 
     def zero_grad(self):
         self.optimizer.zero_grad()

@@ -3,10 +3,10 @@ import gym
 import numpy as np
 
 from dqn.agent import *
-from dqn.utils import batchify, preprocess_env
+from dqn.utils import ATARI_ENVS, batchify, preprocess_env
 
 
-def evaluate(env, run_dir, checkpoint, epsilon, episodes=5):
+def evaluate(env_name, env, run_dir, checkpoint, epsilon, episodes=5):
     """
     Evaluate agent from checkpoint; print rewards and save videos.
     """
@@ -15,7 +15,7 @@ def evaluate(env, run_dir, checkpoint, epsilon, episodes=5):
         env,
         episode_trigger=lambda _: True,
         video_folder=f"{run_dir}/{checkpoint}/videos",
-        name_prefix="Breakout",
+        name_prefix=env_name,
     )
     ep_rewards = []
     for ep in range(episodes):
@@ -43,9 +43,11 @@ if __name__ == "__main__":
     run_dir = f"runs/{args.run}"
 
     env_name = args.env
+    is_atari = np.any([env_name.startswith(atari_env) for atari_env in ATARI_ENVS])
+    network_type = "conv" if is_atari else "linear"
     env = preprocess_env(gym.make(env_name), episodic_life=False)
     agent = DQNAgent(
-        network_type="conv",  # TODO fix
+        network_type=network_type,
         num_inputs=4,
         num_outputs=env.action_space.n,
         device="cpu",
@@ -53,9 +55,12 @@ if __name__ == "__main__":
     checkpoints = sorted(os.listdir(run_dir))
     out = ""
     out_file = open(f"{run_dir}/{env_name}_video_rewards.txt", "w")
-    for checkpoint in os.listdir(run_dir):
+    checkpoints = [dir for dir in os.listdir(run_dir) if dir[0].isdigit()]
+    for checkpoint in checkpoints:
         agent.load(run_dir, checkpoint)
+        print(f"loaded checkpoint {checkpoint} from {run_dir}")
         ep_rewards = evaluate(
+            env_name,
             env,
             run_dir,
             checkpoint,
@@ -67,7 +72,3 @@ if __name__ == "__main__":
         out += reward_str
     out_file.write(out)
     out_file.close()
-
-
-
-
