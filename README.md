@@ -2,9 +2,9 @@ PyTorch implementation of [DQN](http://web.stanford.edu/class/psych209/Readings/
 
 
 
-<table><tr>
-<td> <video src="videos/breakout.mp4" type=video/mp4 style="width: 250px;"/> </td>
-</tr></table>
+
+| --- | --- |
+| https://user-images.githubusercontent.com/3505187/163688241-8d951b23-fb82-4771-b57d-b9662565661d.mp4 | https://user-images.githubusercontent.com/3505187/163688243-0232504a-2ac6-45e1-a1d7-bfe9ca35d305.mp4 |
 
 
 
